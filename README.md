@@ -111,9 +111,32 @@ Token luôn tính là 14pt: tuy `{HOTEN}` viết hoa nhưng giá trị thật s�
 "Ngô Quang Tâm", tức chữ thường. Đổi ngưỡng ở `CO_CHU_IN_HOA` / `CO_CHU_THUONG`
 trong `lib/docx/fill.js`.
 
-Mọi thứ khác — font chữ, đậm, nghiêng, màu — vẫn lấy theo nhãn, chỉ riêng cỡ
-chữ là ép theo bảng trên. Thẻ `<w:sz>` và `<w:szCs>` được chèn đúng vị trí lược
-đồ OOXML quy định (`upsertRunProp` tra bảng `RPR_ORDER`).
+Font chữ, nghiêng, màu vẫn lấy theo nhãn. Thẻ `<w:sz>` và `<w:szCs>` được chèn
+đúng vị trí lược đồ OOXML quy định (`upsertRunProp` tra bảng `RPR_ORDER`).
+
+## In đậm khối tiêu đề
+
+Theo chuẩn công văn, cơ quan cấp trên **không** in đậm còn đơn vị ban hành **có**:
+
+```
+CÔNG AN THÀNH PHỐ ĐỒNG NAI      ← thường
+CÔNG AN PHƯỜNG HÀNG GÒN         ← đậm
+```
+
+Mẫu gốc làm không thống nhất (8 chỗ cấp trên bị đậm, 10 chỗ đơn vị bị thường),
+nên slot `donViHeader` khai `boldByOrdinal: [false, true]` để ép lại cho đều.
+
+Hai điểm cần lưu ý khi cài:
+
+- **Ép cho cả nhãn lẫn phần điền.** `CÔNG AN` nằm sẵn trong mẫu, ` PHƯỜNG HÀNG
+  GÒN` là phần ta chèn — chỉ đậm một nửa thì dòng lệch nhau. Engine áp cho mọi
+  run trong khoảng `boldRange`, tức cả cụm khớp.
+- **Bỏ đậm phải ghi rõ `w:val="0"`**, không được xóa thẻ `<w:b>` đi, vì khi đó
+  run sẽ thừa kế lại in đậm từ style của đoạn.
+
+Không ép in đậm cho cả đoạn, vì ở nhiều mẫu con dấu `Mẫu M124 · BH theo TT số
+129/2026/TT-BCA` nằm chung đoạn với dòng tiêu đề — đậm cả đoạn sẽ đậm luôn con
+dấu.
 
 ### Bằng chứng định dạng không đổi
 
