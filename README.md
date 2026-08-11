@@ -72,7 +72,7 @@ lib/slots/tokens.js   ★ khai báo token công dân theo từ vựng ppv2web
 lib/profile.js      định nghĩa trường hồ sơ đơn vị (UI đọc để tự sinh form)
 ```
 
-### Hai vấn đề kỹ thuật cốt lõi
+### Ba vấn đề kỹ thuật cốt lõi
 
 **1. Word cắt một câu thành nhiều `<w:r>` tùy tiện.** Chuỗi `TRƯỞNG CÔNG AN ……`
 có thể nằm rải trong 4 node khác nhau, nên tìm-thay trên từng node sẽ trượt.
@@ -84,6 +84,36 @@ ranh giới định dạng.
 `……..(1)`, `……` không dấu cách. `matcher.js` nhận diện theo **neo + vùng chấm**
 thay vì so chuỗi cố định. Vùng chấm phải có ít nhất 2 ký tự chấm để không nuốt
 nhầm dấu chấm cuối câu.
+
+**3. Dấu chấm được gõ nhỏ hơn nhãn.** Người soạn mẫu thu nhỏ dãy chấm để nhét
+vừa dòng — cùng một biểu mẫu có chỗ nhãn 13pt mà chấm chỉ 10pt, có chỗ 9pt:
+
+```
+1. Họ tên:  →  '1. '(13pt) 'Họ tên'(13pt) ':'(10pt) '..........'(10pt)
+2. Tên gọi khác:  →  '2. Tên gọi khác:'(13pt) '............'(9pt)
+```
+
+Ghi đè tại chỗ thì chữ điền vào thừa hưởng cỡ của dấu chấm, ra kết quả chỗ to
+chỗ bé. Engine lấy định dạng ở **đầu nhãn** (`styleAt`), không phải ở vùng chấm
+liền kề — kể cả khi ký tự sát trước ô cũng bị thu nhỏ (dấu `:` ở ví dụ trên).
+
+## Cỡ chữ của phần được điền
+
+Theo chuẩn trình bày văn bản hành chính, phần điền vào được ép cỡ chữ:
+
+| Kiểu chữ | Cỡ | Ví dụ |
+|---|---|---|
+| IN HOA | **13pt** | `CÔNG AN THÀNH PHỐ ĐỒNG NAI`, `PHƯỜNG HÀNG GÒN`, `CAP` |
+| chữ thường | **14pt** | `Hàng Gòn`, `phường Hàng Gòn`, `thành phố Đồng Nai` |
+| token | **14pt** | `{HOTEN}`, `{NGAYSINH}/{THANGSINH}/{NAMSINH}` |
+
+Token luôn tính là 14pt: tuy `{HOTEN}` viết hoa nhưng giá trị thật sẽ là
+"Ngô Quang Tâm", tức chữ thường. Đổi ngưỡng ở `CO_CHU_IN_HOA` / `CO_CHU_THUONG`
+trong `lib/docx/fill.js`.
+
+Mọi thứ khác — font chữ, đậm, nghiêng, màu — vẫn lấy theo nhãn, chỉ riêng cỡ
+chữ là ép theo bảng trên. Thẻ `<w:sz>` và `<w:szCs>` được chèn đúng vị trí lược
+đồ OOXML quy định (`upsertRunProp` tra bảng `RPR_ORDER`).
 
 ### Bằng chứng định dạng không đổi
 
