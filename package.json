@@ -1,0 +1,17 @@
+{
+  "name": "bieu-mau",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "scan": "node scripts/scan.mjs",
+    "fill": "node scripts/fill.mjs"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.8",
+    "pizzip": "^3.2.0"
+  }
+}

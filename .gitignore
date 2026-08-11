@@ -1,0 +1,4 @@
+node_modules/
+.next/
+ket-qua/
+*.local
