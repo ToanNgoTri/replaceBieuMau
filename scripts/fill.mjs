@@ -4,6 +4,8 @@
  * Dùng:
  *   node scripts/fill.mjs <nguồn.docx|thư mục> <thư mục đích> [hồ-sơ.json]
  */
+
+//npm run fill -- "D:\Code\replaceBieuMau\5. Bieu mau, so THNCĐ" "/Bieu mau" 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fillDocx } from '../lib/docx/fill.js';
