@@ -1,4 +1,7 @@
 node_modules/
 .next/
 ket-qua/
+# Kết quả convert chứa dữ liệu công dân — không bao giờ đưa lên git
+ket-qua-dancu/
+*.csv
 *.local

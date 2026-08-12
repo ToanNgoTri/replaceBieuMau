@@ -70,6 +70,12 @@ lib/slots/matcher.js  nhận diện ô trống, xử lý chồng lấn và chữ
 lib/slots/definitions.js  ★ khai báo ô đơn vị — tri thức nghiệp vụ ở đây
 lib/slots/tokens.js   ★ khai báo token công dân theo từ vựng ppv2web
 lib/profile.js      định nghĩa trường hồ sơ đơn vị (UI đọc để tự sinh form)
+
+lib/sheet/xlsx.js       đọc .xlsx → mảng hàng (chuỗi)
+lib/sheet/ods.js        đọc .ods  → mảng hàng, kèm sửa lỗi ngày của LibreOffice
+lib/population/fields.js   ★ chuẩn hoá từng trường dân cư — CCCD, ngày, địa chỉ
+lib/population/convert.js  ★ ghép ba bảng kết xuất thành bản ghi `population`
+lib/population/csv.js   xuất CSV đúng quy ước nhập liệu của Supabase
 ```
 
 ### Ba vấn đề kỹ thuật cốt lõi
@@ -306,3 +312,210 @@ bộ, và mọi token đều có key tương ứng trong `dataDict` của ppv2we
   cán bộ (`Phân công ông/bà: Họ tên: .....`), nhãn giống hệt nhãn của người chấp
   hành án nên không phân biệt được bằng chữ. Soát lại các mẫu Quyết định phân
   công sau khi chạy.
+
+---
+
+# Convert dữ liệu dân cư → Supabase
+
+Luồng thứ hai của kho này, độc lập hoàn toàn với phần biểu mẫu: chuyển ba bảng
+kết xuất từ hệ thống dân cư thành CSV nhập thẳng vào bảng `population` mà
+ppv2web đang dùng.
+
+```
+nhan khau.ods    24.292 nhân khẩu thường trú — bảng gốc, một dòng một người
+dan toc.xlsx      2.013 người, cột cuối là tên dân tộc
+ton giao.xlsx    13.451 người, cột cuối là tên tôn giáo
+                        ↓ ghép theo CCCD
+                 population.csv → Table Editor → bảng population
+```
+
+```bash
+npm run convert -- ~/Downloads ./ket-qua-dancu --kinh
+
+# hoặc chỉ tên thẳng từng file, tên gì cũng được
+npm run convert -- "nhan khau.ods" "dan toc.xlsx" "ton giao.xlsx" ./ket-qua-dancu
+```
+
+| Tuỳ chọn | Ý nghĩa |
+|---|---|
+| `--don-vi "Hàng Gòn"` | tên đơn vị cấp xã, dùng để cắt đuôi địa chỉ |
+| `--kinh` | ai không có tên trong file dân tộc thì ghi `KINH` |
+| `--chia 5000` | cắt CSV thành nhiều file, mỗi file bấy nhiêu dòng |
+| `--khong-doi-ngay` | giữ nguyên ngày trong `.ods`, không sửa lỗi LibreOffice |
+
+Quét cả thư mục thì tên file phải chứa `nhan khau` / `dan toc` / `ton giao`
+(không phân biệt hoa thường và dấu). Chỉ tên thẳng từng file thì đặt tên gì
+cũng được.
+
+## Ánh xạ cột
+
+| Cột `population` | Nguồn | Xử lý |
+|---|---|---|
+| `CCCD` **(khoá chính)** | Số ĐDCN/CCCD/CMND | đệm `0` cho đủ 12 số |
+| `HOTEN` · `TENCHA` · `TENME` | Họ và tên, Họ tên cha, Họ tên mẹ | viết hoa, gọn khoảng trắng |
+| `NAMSINH` | Ngày sinh | `DD/MM/YYYY` |
+| `GIOITINH` | Giới tính | `Nam` → `true`, `Nữ` → `false` |
+| `SOHOK` | Số HSCT | 6 số cuối: `26113-005676` → `005676` |
+| `NOITHTRU` · `NOIOHIENTAI` | Nơi thường trú, Nơi ở hiện tại | cắt từ đoạn cấp xã trở về sau |
+| `DANTOC` · `TONGIAO` | hai file lọc, ghép theo CCCD | viết hoa |
+| `QUANHE` | suy từ cột Họ và tên chủ hộ | `CHỦ HỘ` / `CON` / để trống |
+| `GHICHU` | Trạng thái NK quản lý đặc thù | bỏ câu "Không thuộc diện quản lý…" |
+| `SDT` | — | để trống, kết xuất không có |
+| `VANGNHA` · `PRINTED` · `CRIMINALRECORD` | — | `false` |
+
+## Năm cái bẫy trong dữ liệu nguồn
+
+**1. File `.ods` bị LibreOffice đảo ngày ↔ tháng.** File `.ods` là bản `.xlsx`
+gốc mở bằng LibreOffice rồi lưu lại. Lúc mở, LibreOffice đọc cột ngày theo
+locale Mỹ: chuỗi `11/09/2010` thành ngày 9 tháng 11 và ghi xuống
+`office:date-value="2010-09-11"`. Chỉ ô có ngày ≤ 12 mới lọt qua kiểu ngày,
+phần còn lại nằm nguyên dạng chuỗi và vẫn đúng. Tức là: **ô kiểu ngày trong
+`.ods` là ô đã hỏng, ô kiểu chuỗi thì còn nguyên.**
+
+Đối chiếu với chính số serial trong `ton giao.xlsx` (bản kết xuất chưa qua
+LibreOffice) trên 15.464 người có mặt ở cả hai file:
+
+| Ô trong `.ods` | Số ô | Khớp nếu để nguyên | Khớp nếu đảo lại |
+|---|---|---|---|
+| kiểu ngày | 6.305 | 0 | **6.305** |
+| kiểu chuỗi | 7.146 | **7.146** | — |
+
+Đó là căn cứ để mặc định bật sửa. Nếu lần sau lấy thẳng `.xlsx` không qua
+LibreOffice thì không có chuyện này — engine đọc `.xlsx` theo số serial nên
+luôn đúng.
+
+**2. CCCD mất số 0 đầu.** Ô CCCD là ô kiểu số, nên mã tỉnh `075` bị Excel nuốt
+mất số 0: `075310019367` nằm trong file thành `75310019367`. Có cả trường hợp
+mất hai số 0 (mã tỉnh `001`–`009`, còn 10 chữ số). Đệm `0` cho đủ 12 là khôi
+phục đúng giá trị gốc — và bắt buộc, vì `CCCD` là khoá chính, sai một số là
+người khác.
+
+**3. Địa chỉ lặp hai lần nếu giữ nguyên.** ppv2web tự ghép
+`", phường Hàng Gòn, thành phố Đồng Nai"` vào cuối `NOITHTRU` lúc sinh văn bản.
+Engine cắt đoạn cấp xã trở về sau, nhưng **chỉ cắt đúng đoạn cấp xã**:
+
+```
+Tổ 14, KP Hàng Gòn, Phường Hàng Gòn, Tỉnh Đồng Nai  →  Tổ 14, KP Hàng Gòn
+ẤP HÀNG GÒN XÃ HÀNG GÒN, TP LONG KHÁNH, ĐỒNG NAI    →  ẤP HÀNG GÒN
+ấp Chiến Thắng, Xã Xuân Định, Tỉnh Đồng Nai         →  giữ nguyên (ngoài xã)
+```
+
+`KP Hàng Gòn`, `Khu phố Hàng Gòn`, `ấp Hàng Gòn` là tên khu phố — cắt nhầm là
+mất mức địa chỉ chi tiết nhất. So khớp theo **từ** chứ không theo chuỗi con, và
+đoạn trơ mỗi chữ `Hàng Gòn` chỉ được coi là cấp xã khi nó nằm ở cuối địa chỉ.
+
+**4. Tiêu đề lặp giữa bảng.** Bản kết xuất chèn lại nguyên hàng tiêu đề sau mỗi
+trang in — 242 lần trong file nhân khẩu. Lọc theo nội dung, không chỉ bỏ hàng
+đầu tiên.
+
+**5. Cột dân tộc / tôn giáo không có tiêu đề.** Hai file lọc có 15 cột đặt tên
+rồi thêm một cột thứ 16 để trắng tiêu đề, chính là giá trị cần lấy. Engine lấy
+theo vị trí (cột ngay sau cột cuối cùng có tên) và báo lỗi ngay nếu cột đó rỗng.
+
+## Những chỗ cố tình để trống
+
+- **`QUANHE`** — kết xuất không có cột này, chỉ có tên chủ hộ. Suy chắc chắn
+  được hai trường hợp: chính là chủ hộ (5.362 người), và có cha hoặc mẹ là chủ
+  hộ (9.174 người). Còn lại 9.756 người là vợ/chồng/cháu/ở nhờ — không đủ căn
+  cứ, để trống cho cán bộ điền. Đoán bừa ở đây là đưa dữ liệu sai vào giấy tờ.
+- **`DANTOC` với `--kinh`** — chỉ suy ra `KINH` cho người **không có tên** trong
+  file dân tộc. Người có tên nhưng bỏ trống ô, hoặc ghi "Chưa có thông tin",
+  vẫn để trống. Không có cờ này thì 22.279 người để trống hết.
+- **`TONGIAO`** — chỉ 13.451/24.292 người có trong file tôn giáo. Người không
+  có trong đó để trống, không suy thành "Không".
+- **`SDT`** — kết xuất không có số điện thoại.
+
+## Nhập vào Supabase
+
+Cách nhanh nhất là Table Editor → bảng `population` → *Insert* → *Import data
+from CSV*. File 24 nghìn dòng nặng ~4,5 MB, nhập được nhưng chậm; muốn chắc thì
+`--chia 5000` rồi nhập từng mẻ.
+
+Bảng đang có sẵn dữ liệu thì đừng nhập thẳng — trùng `CCCD` là hỏng cả mẻ. Nhập
+qua bảng tạm rồi upsert:
+
+```sql
+create table population_tam (like public.population including defaults);
+-- Table Editor → import CSV vào population_tam
+
+insert into public.population
+select * from population_tam
+on conflict ("CCCD") do update set
+  "QUANHE"   = excluded."QUANHE",
+  "HOTEN"    = excluded."HOTEN",
+  "NAMSINH"  = excluded."NAMSINH",
+  "GIOITINH" = excluded."GIOITINH",
+  "SOHOK"    = excluded."SOHOK",
+  "NOITHTRU" = excluded."NOITHTRU",
+  "TENCHA"   = excluded."TENCHA",
+  "TENME"    = excluded."TENME",
+  "DANTOC"   = excluded."DANTOC",
+  "TONGIAO"  = excluded."TONGIAO",
+  "NOIOHIENTAI" = excluded."NOIOHIENTAI";
+  -- cố ý KHÔNG ghi đè GHICHU, SDT, VANGNHA, PRINTED, CRIMINALRECORD:
+  -- đó là dữ liệu cán bộ tự nhập, kết xuất không có
+
+drop table population_tam;
+```
+
+Thứ tự cột trong CSV đúng bằng thứ tự cột của bảng nên `select *` chạy được.
+Cần đối chiếu trước khi ghi đè thì thay `insert` bằng một câu `select` so hai
+bảng.
+
+Lưu ý trigger `sync_population_after_change` chạy **một lần cho mỗi dòng**, nên
+nhập 24 nghìn dòng là 24 nghìn lần gọi `trigger_sync_population()`. Nếu hàm đó
+gọi ra ngoài (webhook, đồng bộ sang bảng khác) thì tắt trigger trong lúc nhập
+rồi đồng bộ lại một lượt:
+
+```sql
+alter table public.population disable trigger sync_population_after_change;
+-- … nhập dữ liệu …
+alter table public.population enable trigger sync_population_after_change;
+```
+
+## Kiểm chứng bản CSV
+
+Bản `population.csv` sinh ra từ ba file ngày 12/8/2026 đã được đối chiếu ngược
+lại với chính hai file `.xlsx` gốc, trên 15.464 người có mặt ở cả hai nguồn:
+
+| Trường đối chiếu | Số lệch |
+|---|---|
+| Ngày sinh (so với số serial trong `.xlsx`) | 0 |
+| Họ tên · Giới tính · Tên cha · Tên mẹ | 0 |
+| Số hồ sơ hộ khẩu (6 số cuối) | 0 |
+| Dân tộc · Tôn giáo | 0 |
+
+Và trên toàn bộ 24.292 bản ghi: không trùng `CCCD`, 100% `CCCD` đủ 12 chữ số,
+100% `NAMSINH` đúng dạng `DD/MM/YYYY`, không dòng nào sai số cột.
+
+## Hạn chế của luồng convert
+
+- **Không đọc được `.xls`** (Excel 97 nhị phân). Lưu lại thành `.xlsx` hoặc
+  `.ods` trước.
+- **Chỉ đọc sheet đầu tiên** của mỗi file.
+- **`ket-qua-dancu/` và mọi file `.csv` đều bị `.gitignore` chặn** — đây là dữ
+  liệu công dân, không được đưa lên git. Đừng gỡ dòng đó ra.
+
+
+
+Mở Terminal (Cmd + Space → gõ Terminal → Enter), dán nguyên hai dòng này rồi Enter:
+
+  cd ~/Toan/code/bieu-mau
+  npm run convert -- ~/Downloads ./ket-qua-dancu --kinh
+
+  Chạy khoảng 10–15 giây, xong là in ra bảng thống kê và file nằm ở ~/Toan/code/bieu-mau/ket-qua-dancu/population.csv.
+
+  Mở thư mục kết quả trong Finder cho nhanh:
+
+  open ~/Toan/code/bieu-mau/ket-qua-dancu
+
+  Vài lưu ý:
+
+  - Dấu -- sau npm run convert là bắt buộc — thiếu nó thì npm nuốt hết phần đường dẫn phía sau, script không nhận được tham số nào.
+  - Ba file nhan khau.ods, dan toc.xlsx, ton giao.xlsx phải còn nằm trong ~/Downloads (đang còn). Tải bản mới về cùng chỗ, giữ nguyên kiểu tên đó là chạy
+  lại được ngay, file cũ bị ghi đè.
+  - Chạy lại bao nhiêu lần cũng được, không đụng gì tới Supabase — script chỉ đọc file và ghi ra CSV.
+
+  Nếu tiện hơn thì gõ thẳng trong khung chat này, thêm dấu ! ở đầu:
+
+  !cd ~/Toan/code/bieu-mau && npm run convert -- ~/Downloads ./ket-qua-dancu --kinh
