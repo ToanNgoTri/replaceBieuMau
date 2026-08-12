@@ -73,9 +73,12 @@ lib/profile.js      định nghĩa trường hồ sơ đơn vị (UI đọc đ�
 
 lib/sheet/xlsx.js       đọc .xlsx → mảng hàng (chuỗi)
 lib/sheet/ods.js        đọc .ods  → mảng hàng, kèm sửa lỗi ngày của LibreOffice
+lib/population/cot.js      dò cột theo nhãn tiêu đề, không theo số thứ tự cột
+lib/population/nhandang.js ★ nhận ra file nào là bảng gì, bằng nội dung
 lib/population/fields.js   ★ chuẩn hoá từng trường dân cư — CCCD, ngày, địa chỉ
-lib/population/convert.js  ★ ghép ba bảng kết xuất thành bản ghi `population`
-lib/population/csv.js   xuất CSV đúng quy ước nhập liệu của Supabase
+lib/population/quanhe.js   ★ suy quan hệ với chủ hộ từ cây gia đình trong hộ
+lib/population/convert.js  ★ ghép các bảng kết xuất thành bản ghi `population`
+lib/population/csv.js      xuất CSV đúng quy ước nhập liệu của Supabase
 ```
 
 ### Ba vấn đề kỹ thuật cốt lõi
@@ -317,7 +320,7 @@ bộ, và mọi token đều có key tương ứng trong `dataDict` của ppv2we
 
 # Convert dữ liệu dân cư → Supabase
 
-Luồng thứ hai của kho này, độc lập hoàn toàn với phần biểu mẫu: chuyển ba bảng
+Luồng thứ hai của kho này, độc lập hoàn toàn với phần biểu mẫu: chuyển các bảng
 kết xuất từ hệ thống dân cư thành CSV nhập thẳng vào bảng `population` mà
 ppv2web đang dùng.
 
@@ -325,7 +328,8 @@ ppv2web đang dùng.
 nhan khau.ods    24.292 nhân khẩu thường trú — bảng gốc, một dòng một người
 dan toc.xlsx      2.013 người, cột cuối là tên dân tộc
 ton giao.xlsx    13.451 người, cột cuối là tên tôn giáo
-                        ↓ ghép theo CCCD
+HO KHAU.xlsx      5.353 hộ — cho biết CCCD của chủ hộ  (không bắt buộc)
+                        ↓ ghép theo CCCD, suy quan hệ theo từng hộ
                  population.csv → Table Editor → bảng population
 ```
 
@@ -333,8 +337,13 @@ ton giao.xlsx    13.451 người, cột cuối là tên tôn giáo
 npm run convert -- ~/Downloads ./ket-qua-dancu --kinh
 
 # hoặc chỉ tên thẳng từng file, tên gì cũng được
-npm run convert -- "nhan khau.ods" "dan toc.xlsx" "ton giao.xlsx" ./ket-qua-dancu
+npm run convert -- "nhan khau.ods" "dan toc.xlsx" "ton giao.xlsx" "HO KHAU.xlsx" ./ket-qua-dancu
 ```
+
+Đưa vào cả thư mục hay từng file đều được, **đặt tên gì cũng được** — engine
+nhận dạng bằng nội dung (xem mục dưới). Chỉ bảng nhân khẩu là bắt buộc; thiếu
+file nào thì cột tương ứng để trống, riêng thiếu bảng hộ khẩu thì chủ hộ được dò
+theo tên — vẫn ra 5.325/5.353 hộ.
 
 | Tuỳ chọn | Ý nghĩa |
 |---|---|
@@ -343,9 +352,46 @@ npm run convert -- "nhan khau.ods" "dan toc.xlsx" "ton giao.xlsx" ./ket-qua-danc
 | `--chia 5000` | cắt CSV thành nhiều file, mỗi file bấy nhiêu dòng |
 | `--khong-doi-ngay` | giữ nguyên ngày trong `.ods`, không sửa lỗi LibreOffice |
 
-Quét cả thư mục thì tên file phải chứa `nhan khau` / `dan toc` / `ton giao`
-(không phân biệt hoa thường và dấu). Chỉ tên thẳng từng file thì đặt tên gì
-cũng được.
+## Nhận dạng file bằng nội dung, không bằng tên
+
+Tên file kết xuất đổi theo từng lần tải về, nên đoán theo tên là sai sớm hay
+muộn. Engine đọc 400 hàng đầu của mỗi file rồi nhận dạng theo dấu hiệu bên trong:
+
+| Bảng | Dấu hiệu nhận ra |
+|---|---|
+| nhân khẩu | có cột `Họ tên cha` + `Họ tên mẹ`, **không** có cột giá trị thêm |
+| hộ khẩu | cột tên là `Họ tên chủ hộ`, có `Ngày lập`, **không** có cột cha/mẹ |
+| dân tộc | như nhân khẩu, thêm cột không tiêu đề chứa **tên dân tộc** |
+| tôn giáo | như nhân khẩu, thêm cột không tiêu đề chứa **tên tôn giáo** |
+
+Hai file lọc có tiêu đề **giống hệt nhau**, chỉ khác nội dung cột cuối, nên phải
+phân biệt bằng **từ vựng**. May là cả hai đều là tập đóng — 54 dân tộc và mười
+mấy tôn giáo được công nhận — nên chỉ cần đếm số dòng khớp mỗi bên rồi so. Giá
+trị có ở cả hai bên (`Khác`, `Chưa có thông tin`) bị loại khỏi phép đếm.
+
+Chạy trên thư mục Tải về thật, trong đó có 10 bảng tính không liên quan:
+
+```
+Nhận dạng theo nội dung:
+  hộ khẩu    DS 5412 dong.xlsx         cột tên là "Họ tên chủ hộ", không có cột cha/mẹ
+  dân tộc    Export_20260812_A.xlsx    cột 16 chứa: Khác, Khách Gia, Xinh Mun
+  tôn giáo   Export_20260812_B.xlsx    cột 16 chứa: Khác, Thiên Chúa, Bà La Môn
+  nhân khẩu  bang 1 (2).ods            có cột cha/mẹ, không có cột giá trị thêm
+  (bỏ qua)   KSV-ACTIVITY.xlsx         không có cột Họ và tên và Họ tên cha/mẹ
+  (bỏ qua)   Ham if trong Power Query.xlsx   không có cột Họ và tên và Họ tên cha/mẹ
+```
+
+Bốn file trên đã bị đổi thành tên vô nghĩa, engine vẫn nhận đúng và cho ra file
+CSV **giống hệt từng byte** so với khi chạy bằng tên gốc.
+
+Tên file chỉ còn dùng làm trọng tài: nếu có hai file cùng nhận một vai (ví dụ
+tải về hai bản nhân khẩu ở hai thời điểm) thì lấy file có từ khoá trong tên; hai
+file đều không có từ khoá thì engine dừng và in cả hai ra để người dùng tự chọn
+— thà dừng còn hơn chọn nhầm bản cũ.
+
+Việc dò từng cột cũng theo nhãn tiêu đề, không theo số thứ tự cột
+(`lib/population/cot.js`), nên hệ thống dân cư thêm hay đổi chỗ cột thì code
+không phải sửa.
 
 ## Ánh xạ cột
 
@@ -358,7 +404,7 @@ cũng được.
 | `SOHOK` | Số HSCT | 6 số cuối: `26113-005676` → `005676` |
 | `NOITHTRU` · `NOIOHIENTAI` | Nơi thường trú, Nơi ở hiện tại | cắt từ đoạn cấp xã trở về sau |
 | `DANTOC` · `TONGIAO` | hai file lọc, ghép theo CCCD | viết hoa |
-| `QUANHE` | suy từ cột Họ và tên chủ hộ | `CHỦ HỘ` / `CON` / để trống |
+| `QUANHE` | suy từ cây gia đình trong hộ | 23 loại quan hệ — xem mục dưới |
 | `GHICHU` | Trạng thái NK quản lý đặc thù | bỏ câu "Không thuộc diện quản lý…" |
 | `SDT` | — | để trống, kết xuất không có |
 | `VANGNHA` · `PRINTED` · `CRIMINALRECORD` | — | `false` |
@@ -412,12 +458,93 @@ trang in — 242 lần trong file nhân khẩu. Lọc theo nội dung, không ch
 rồi thêm một cột thứ 16 để trắng tiêu đề, chính là giá trị cần lấy. Engine lấy
 theo vị trí (cột ngay sau cột cuối cùng có tên) và báo lỗi ngay nếu cột đó rỗng.
 
+## Suy quan hệ với chủ hộ
+
+Kết xuất không có cột quan hệ, nhưng mỗi người có **tên cha** và **tên mẹ**. Gom
+theo số hộ khẩu là được một đồ thị nhỏ (trung bình 4–5 người), lần theo các cạnh
+cha/mẹ là suy ra được quan hệ với chủ hộ. Toàn bộ nằm trong
+`lib/population/quanhe.js`.
+
+Chủ hộ được xác định bằng **CCCD** lấy từ `HO KHAU.xlsx`, không phải bằng tên —
+tên thì trùng được, mà nhận sai chủ hộ là sai cả hộ.
+
+Kết quả trên 5.378 hộ / 24.292 người: **23.296 người (95,9%)** suy được.
+
+| | | | |
+|---|---|---|---|
+| `CHỦ HỘ` 5.353 | `CON` 9.207 | `CHÁU` 4.111 | `VỢ` 2.520 |
+| `CON DÂU` 663 | `CHỒNG` 418 | `EM` 342 | `MẸ` 163 |
+| `CHỊ` 134 | `ANH` 112 | `CON RỂ` 92 | `CHẮT` 78 |
+| `CHA` 35 | `EM DÂU` 19 | `CHÁU DÂU` 13 | `CHỊ DÂU` 11 |
+| `MẸ VỢ` 10 | `EM RỂ` 8 | `ANH RỂ` 3 | `MẸ CHỒNG` 3 |
+| `CHA CHỒNG` 1 | | | để trống **996** |
+
+Chín luật, chạy theo đúng thứ tự này — luật sau dựa vào kết quả luật trước, gán
+rồi thì không gán lại:
+
+| # | Luật | Suy ra |
+|---|---|---|
+| 1 | cha hoặc mẹ là chủ hộ | `CON` |
+| 2 | tên trùng tên cha / mẹ của chủ hộ | `CHA` · `MẸ` |
+| 3 | có con chung với chủ hộ | `VỢ` · `CHỒNG` |
+| 4 | chung cha hoặc chung mẹ với chủ hộ, sinh trước/sau | `ANH` · `CHỊ` · `EM` |
+| 5 | có con chung với một người `CON` | `CON DÂU` · `CON RỂ` |
+| 6 | là cha / mẹ của vợ hoặc chồng chủ hộ | `CHA VỢ` · `MẸ VỢ` · `CHA CHỒNG` · `MẸ CHỒNG` |
+| 7 | cha hoặc mẹ là `CON` / `CON DÂU` / `CON RỂ` / `ANH` / `CHỊ` / `EM` | `CHÁU`, đời sau nữa là `CHẮT` |
+| 8 | có con chung với một người `CHÁU` / `ANH` / `CHỊ` / `EM` | `CHÁU DÂU/RỂ` · `CHỊ DÂU` · `ANH RỂ` · `EM DÂU/RỂ` |
+| 9 | là cha / mẹ của người `CHA` / `MẸ` chủ hộ | `ÔNG` · `BÀ` |
+
+Một hộ điền ra đúng như sau — 13 người, 8 loại quan hệ, không cần sửa tay chữ nào:
+
+```
+ANH      ĐỖ HUY SƠN        1977   cha=ĐỖ HUY DO  mẹ=NGUYỄN THỊ LÀI
+CHỦ HỘ   ĐỖ HUY LAM        1980   cha=ĐỖ HUY DO  mẹ=NGUYỄN THỊ LÀI
+EM       ĐỖ HUY NAM        1982   cha=ĐỖ HUY DO  mẹ=NGUYỄN THỊ LÀI
+CHỊ DÂU  NGUYỄN THỊ THỦY   1984   ← có con chung với ĐỖ HUY SƠN (anh)
+VỢ       TRỊNH THỊ HẠNH    1988   ← có con chung với chủ hộ
+EM DÂU   MAI THỊ PHẤN      1989   ← có con chung với ĐỖ HUY NAM (em)
+CON      ĐỖ HUY ĐẠT        2008   cha=ĐỖ HUY LAM
+CHÁU     ĐỖ THỊ THU        2004   cha=ĐỖ HUY SƠN
+```
+
+### Bốn chỗ dễ sai, đã xử lý
+
+**Cạnh nối bằng TÊN, không bằng CCCD.** Kết xuất chỉ ghi tên cha mẹ. Nên nếu một
+hộ có hai người trùng tên thì mọi cạnh trỏ tới tên đó bị coi là không xác định —
+thà bỏ trống hơn gán sai. Có 7 hộ như vậy.
+
+**Anh chị em: chỉ cần trùng MỘT bên cha hoặc mẹ.** Đòi trùng cả hai thì mất 75
+người, vì tên bên còn lại hay bị gõ lệch: `ĐỖ THỊ THỦY HỒNG` / `ĐỖ THỊ THÚY
+HỒNG`, `TRẦN THỊ HOA` / `TRẦN THỊ NGỌC HOA`. Dù là anh em ruột gõ sai tên hay
+anh em cùng cha khác mẹ thì nhãn vẫn là `ANH`/`CHỊ`/`EM`, nên nới ra không hại.
+
+**Cháu trực hệ khác cháu bên ngang.** Con của người `CON` là cháu, con của người
+đó nữa là `CHẮT`. Nhưng con của `ANH`/`CHỊ`/`EM` cũng gọi là cháu, mà con của
+người đó thì vẫn là cháu chứ không lên chắt. Engine mang theo `đường` (trực hệ
+hay nhánh ngang) để không đếm đời lẫn nhau.
+
+**Chủ hộ vắng mặt.** 25 hộ có chủ hộ không còn trong danh sách nhân khẩu (đã mất
+hoặc chuyển đi mà hộ chưa đổi chủ). Vẫn suy được **80/99 người** trong các hộ đó
+bằng cách dựng một *nút ảo* chỉ có tên chủ hộ: đủ để nhận ra con và vợ/chồng của
+người đó, còn các luật cần ngày sinh hay tên cha mẹ của chủ hộ thì tự động không
+khớp nên không sinh suy diễn bừa.
+
+### Soát lại kết quả
+
+| Phép soát | Kết quả |
+|---|---|
+| Hộ có nhiều hơn một `CHỦ HỘ` | 0 |
+| Hộ có nhiều hơn một `VỢ`/`CHỒNG` | 0 |
+| Nhãn lệch giới tính (`VỢ` mà là nam, `CHA` mà là nữ…) | 0 |
+| Hộ không xác định được chủ hộ | 0 |
+
 ## Những chỗ cố tình để trống
 
-- **`QUANHE`** — kết xuất không có cột này, chỉ có tên chủ hộ. Suy chắc chắn
-  được hai trường hợp: chính là chủ hộ (5.362 người), và có cha hoặc mẹ là chủ
-  hộ (9.174 người). Còn lại 9.756 người là vợ/chồng/cháu/ở nhờ — không đủ căn
-  cứ, để trống cho cán bộ điền. Đoán bừa ở đây là đưa dữ liệu sai vào giấy tờ.
+- **`QUANHE` của 996 người** — phần lớn là **nhà trọ**: nhiều gia đình không
+  quan hệ gì với nhau cùng một số hộ, và người thuê thì không có cạnh nào nối
+  tới chủ hộ. Số còn lại là hộ đứt mắt xích giữa — người con đã đi khỏi hộ, để
+  lại con dâu và các cháu không lần được về chủ hộ. Cả hai trường hợp đều để
+  trống cho cán bộ điền; đoán bừa ở đây là đưa dữ liệu sai vào giấy tờ.
 - **`DANTOC` với `--kinh`** — chỉ suy ra `KINH` cho người **không có tên** trong
   file dân tộc. Người có tên nhưng bỏ trống ô, hoặc ghi "Chưa có thông tin",
   vẫn để trống. Không có cờ này thì 22.279 người để trống hết.
@@ -475,7 +602,7 @@ alter table public.population enable trigger sync_population_after_change;
 
 ## Kiểm chứng bản CSV
 
-Bản `population.csv` sinh ra từ ba file ngày 12/8/2026 đã được đối chiếu ngược
+Bản `population.csv` sinh ra từ bốn file ngày 12/8/2026 đã được đối chiếu ngược
 lại với chính hai file `.xlsx` gốc, trên 15.464 người có mặt ở cả hai nguồn:
 
 | Trường đối chiếu | Số lệch |

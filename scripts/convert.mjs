@@ -21,6 +21,7 @@ import { docXlsx } from '../lib/sheet/xlsx.js';
 import { chuyenDoi, COT_POPULATION } from '../lib/population/convert.js';
 import { chiaMe, taoCsv } from '../lib/population/csv.js';
 import { khongDau } from '../lib/population/fields.js';
+import { nhanDang, tenVai } from '../lib/population/nhandang.js';
 
 const CACH_DUNG =
   'Dùng: node scripts/convert.mjs <thư mục tải về | các file> <thư mục đích> ' +
@@ -53,9 +54,6 @@ const chia = +layGiaTri('--chia', 0) || 0;
 
 /**
  * Gom danh sách file bảng tính từ các đường dẫn truyền vào.
- *
- * File chỉ tên thẳng thì nhận hết; file quét được trong thư mục thì phải có từ
- * khoá trong tên — thư mục Tải về của người dùng còn hàng chục bảng tính khác.
  */
 function gomFile(duongDan) {
   const out = [];
@@ -63,26 +61,24 @@ function gomFile(duongDan) {
     if (fs.statSync(p).isDirectory()) {
       for (const f of fs.readdirSync(p)) {
         if (/\.(ods|xlsx)$/i.test(f) && !f.startsWith('~') && !f.startsWith('.')) {
-          out.push({ file: path.join(p, f), tuThuMuc: true });
+          out.push(path.join(p, f));
         }
       }
     } else {
-      out.push({ file: p, tuThuMuc: false });
+      out.push(p);
     }
   }
   return out;
 }
 
-/** Đoán vai trò của từng file theo tên: dân tộc, tôn giáo, hay bảng nhân khẩu. */
-function phanVai(files) {
-  const vai = { danToc: [], tonGiao: [], nhanKhau: [] };
-  for (const { file, tuThuMuc } of files) {
-    const ten = khongDau(path.basename(file)).toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (ten.includes('dantoc')) vai.danToc.push(file);
-    else if (ten.includes('tongiao')) vai.tonGiao.push(file);
-    else if (ten.includes('nhankhau') || !tuThuMuc) vai.nhanKhau.push(file);
+const thongKeNgay = {};
+
+function doc(file, { laNhanKhau = false, gioiHan = 0 } = {}) {
+  const buf = fs.readFileSync(file);
+  if (/\.ods$/i.test(file)) {
+    return docOds(buf, { doiNgayThang, thongKe: laNhanKhau ? thongKeNgay : {}, gioiHan });
   }
-  return vai;
+  return docXlsx(buf, { gioiHan });
 }
 
 const files = gomFile(nguon);
@@ -91,44 +87,67 @@ if (!files.length) {
   process.exit(1);
 }
 
-const vai = phanVai(files);
-for (const [ten, ds] of Object.entries(vai)) {
-  if (ds.length > 1) {
-    console.error(
-      `Có ${ds.length} file cùng nhận là "${ten}":\n  ` +
-        ds.map((f) => path.basename(f)).join('\n  ') +
-        '\nChỉ đưa vào một file cho mỗi loại, hoặc chỉ định thẳng từng file.',
-    );
-    process.exit(1);
+/**
+ * Nhận dạng từng file bằng NỘI DUNG, không bằng tên.
+ *
+ * Chỉ đọc vài trăm hàng đầu cho nhanh — đủ để thấy tiêu đề và nếm thử cột giá
+ * trị. File nào không phải bảng dân cư thì bỏ qua kèm lý do, vì thư mục Tải về
+ * thường còn hàng chục bảng tính khác không liên quan.
+ */
+const NGO_SO_HANG = 400;
+const daNgo = [];
+for (const file of files) {
+  try {
+    const mau = doc(file, { gioiHan: NGO_SO_HANG });
+    daNgo.push({ file, ...nhanDang(mau) });
+  } catch (loi) {
+    daNgo.push({ file, vai: '', dauHieu: `không đọc được: ${loi.message}` });
   }
 }
-if (!vai.nhanKhau.length) {
+
+console.log('Nhận dạng theo nội dung:');
+for (const n of daNgo.sort((a, b) => (b.vai ? 1 : 0) - (a.vai ? 1 : 0))) {
+  const nhan = n.vai ? tenVai(n.vai) : '(bỏ qua)';
+  console.log(`  ${nhan.padEnd(10)} ${path.basename(n.file).padEnd(46)} ${n.dauHieu}`);
+}
+
+/** Hai file cùng nhận một vai thì lấy file có từ khoá trong tên, không thì báo lỗi. */
+function chonMotFile(vai, ds) {
+  if (ds.length <= 1) return ds[0]?.file ?? null;
+  const tuKhoa = { nhanKhau: 'nhankhau', hoKhau: 'hokhau', danToc: 'dantoc', tonGiao: 'tongiao' }[vai];
+  const theoTen = ds.filter((n) =>
+    khongDau(path.basename(n.file)).toLowerCase().replace(/[^a-z0-9]/g, '').includes(tuKhoa),
+  );
+  if (theoTen.length === 1) {
+    console.log(`\n  ${ds.length} file cùng là bảng ${tenVai(vai)}, chọn theo tên: ${path.basename(theoTen[0].file)}`);
+    return theoTen[0].file;
+  }
   console.error(
-    'Thiếu bảng nhân khẩu. Khi quét cả thư mục, tên file phải chứa "nhan khau", ' +
-      '"dan toc", "ton giao" (không phân biệt dấu). Hoặc chỉ tên thẳng từng file.',
+    `\nCó ${ds.length} file cùng là bảng ${tenVai(vai)}:\n  ` +
+      ds.map((n) => path.basename(n.file)).join('\n  ') +
+      '\nChỉ tên thẳng file cần dùng để khỏi lẫn.',
   );
   process.exit(1);
 }
 
-const thongKeNgay = {};
-
-function doc(file, laNhanKhau) {
-  const buf = fs.readFileSync(file);
-  if (/\.ods$/i.test(file)) {
-    return docOds(buf, { doiNgayThang, thongKe: laNhanKhau ? thongKeNgay : {} });
-  }
-  return docXlsx(buf);
+const chon = {};
+for (const vai of ['nhanKhau', 'danToc', 'tonGiao', 'hoKhau']) {
+  chon[vai] = chonMotFile(vai, daNgo.filter((n) => n.vai === vai));
 }
 
-console.log('Đọc:');
-for (const [ten, ds] of Object.entries(vai)) {
-  if (ds.length) console.log(`  ${ten.padEnd(9)} ${path.basename(ds[0])}`);
+if (!chon.nhanKhau) {
+  console.error(
+    '\nKhông có file nào là bảng nhân khẩu. Bảng nhân khẩu là bảng có đủ cột ' +
+      '"Họ và tên", "Họ tên cha", "Họ tên mẹ" và không có cột dân tộc/tôn giáo kèm theo.',
+  );
+  process.exit(1);
 }
 
 const nguonBang = {
-  nhanKhau: doc(vai.nhanKhau[0], true),
-  danToc: vai.danToc.length ? doc(vai.danToc[0]) : null,
-  tonGiao: vai.tonGiao.length ? doc(vai.tonGiao[0]) : null,
+  nhanKhau: doc(chon.nhanKhau, { laNhanKhau: true }),
+  danToc: chon.danToc ? doc(chon.danToc) : null,
+  tonGiao: chon.tonGiao ? doc(chon.tonGiao) : null,
+  hoKhau: chon.hoKhau ? doc(chon.hoKhau) : null,
 };
 
 const { banGhi, canhBao, thongKe } = chuyenDoi(nguonBang, { donVi, macDinhKinh });
@@ -148,6 +167,18 @@ if (canhBao.length) {
 }
 
 const so = (n) => String(n).padStart(6);
+
+/** Bảng đếm quan hệ, xếp nhiều trước, hai cột cho gọn màn hình. */
+function bangQuanHe({ quanHe }) {
+  const muc = Object.entries(quanHe)
+    .sort((a, b) => b[1] - a[1])
+    .map(([ten, n]) => `${so(n)} ${ten}`);
+  const dong = [];
+  for (let i = 0; i < muc.length; i += 2) {
+    dong.push('  ' + muc[i].padEnd(24) + (muc[i + 1] ?? ''));
+  }
+  return dong.join('\n');
+}
 console.log(`
 Nguồn
   ${so(thongKe.hangDoc)} dòng dữ liệu (${thongKe.hangTieuDeLap} hàng tiêu đề lặp đã bỏ)
@@ -159,10 +190,15 @@ Ghép thêm
   ${so(thongKe.coTonGiao)} người có tôn giáo
   ${so(thongKe.danTocThua ?? 0)} + ${thongKe.tonGiaoThua ?? 0} người ở file lọc không thấy trong bảng nhân khẩu
 
-Suy diễn
-  ${so(thongKe.laChuHo)} QUANHE = CHỦ HỘ
-  ${so(thongKe.laCon)} QUANHE = CON
-  ${so(banGhi.length - thongKe.laChuHo - thongKe.laCon)} QUANHE để trống (không đủ căn cứ suy ra)
+Quan hệ với chủ hộ — suy từ tên cha mẹ trong ${thongKe.soHo} hộ
+${bangQuanHe(thongKe)}
+  ${so(banGhi.length - Object.values(thongKe.quanHe).reduce((a, b) => a + b, 0))} để trống (không đủ căn cứ suy ra)
+  ${so(thongKe.hoTheoHoKhau)} hộ xác định chủ hộ bằng CCCD trong file hộ khẩu
+  ${so(thongKe.hoTheoTen)} hộ dò chủ hộ theo tên
+  ${so(thongKe.hoChuHoVang)} hộ chủ hộ đã đi khỏi hộ — vẫn suy được vợ/con của người đó
+  ${so(thongKe.hoKhongBietChuHo)} hộ không xác định được chủ hộ${
+    thongKe.khongSoHo ? `, ${thongKe.khongSoHo} người không có số hộ` : ''
+  }
 ${
   doiNgayThang && thongKeNgay.oNgayDaDoi
     ? `\nSửa lỗi LibreOffice\n  ${so(thongKeNgay.oNgayDaDoi)} ô kiểu ngày đã đảo lại ngày ↔ tháng`
