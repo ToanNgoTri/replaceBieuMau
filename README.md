@@ -406,8 +406,8 @@ không phải sửa.
 | `DANTOC` · `TONGIAO` | hai file lọc, ghép theo CCCD | viết hoa |
 | `QUANHE` | suy từ cây gia đình trong hộ | 23 loại quan hệ — xem mục dưới |
 | `GHICHU` | Trạng thái NK quản lý đặc thù | bỏ câu "Không thuộc diện quản lý…" |
-| `SDT` | — | để trống, kết xuất không có |
-| `VANGNHA` · `PRINTED` · `CRIMINALRECORD` | — | `false` |
+| `SDT` · `LOCATION` | — | để trống, kết xuất không có |
+| `VANGNHA` · `CRIMINALRECORD` | — | `false` |
 
 ## Năm cái bẫy trong dữ liệu nguồn
 
@@ -579,7 +579,7 @@ on conflict ("CCCD") do update set
   "DANTOC"   = excluded."DANTOC",
   "TONGIAO"  = excluded."TONGIAO",
   "NOIOHIENTAI" = excluded."NOIOHIENTAI";
-  -- cố ý KHÔNG ghi đè GHICHU, SDT, VANGNHA, PRINTED, CRIMINALRECORD:
+  -- cố ý KHÔNG ghi đè GHICHU, SDT, VANGNHA, CRIMINALRECORD, LOCATION:
   -- đó là dữ liệu cán bộ tự nhập, kết xuất không có
 
 drop table population_tam;
