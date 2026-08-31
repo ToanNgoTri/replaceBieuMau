@@ -4,9 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node scripts/ui.mjs",
+    "ui": "node scripts/ui.mjs",
     "scan": "node scripts/scan.mjs",
     "fill": "node scripts/fill.mjs",
     "convert": "node scripts/convert.mjs"

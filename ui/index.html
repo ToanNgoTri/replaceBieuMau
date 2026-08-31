@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Biểu mẫu &amp; dân cư</title>
+<style>
+  :root {
+    --nen: #f6f7f9;
+    --the: #ffffff;
+    --vien: #dfe3e8;
+    --chu: #1c2024;
+    --mo: #6b7280;
+    --chinh: #1f5fbf;
+    --chinh-nen: #e8f0fd;
+    --tot: #1a7f4b;
+    --tot-nen: #e6f4ec;
+    --canh: #9a6400;
+    --canh-nen: #fdf3e0;
+    --loi: #b3261e;
+    --loi-nen: #fdeceb;
+    /* Chữ nằm trên nền --chinh: nền tối dùng xanh sáng nên chữ phải đổi sang đậm. */
+    --tren-chinh: #ffffff;
+    --bo-goc: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --nen: #14171a; --the: #1c2024; --vien: #2f353c; --chu: #e6e8ea; --mo: #97a0ab;
+      --chinh: #74a8ff; --chinh-nen: #17253d; --tot: #6cc493; --tot-nen: #14291f;
+      --canh: #e0b155; --canh-nen: #2b2312; --loi: #ef8981; --loi-nen: #2e1a18;
+      --tren-chinh: #0d1520;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--nen); color: var(--chu);
+    font: 14px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  /* Đường dẫn mới cần monospace — tiếng Việt gõ vào ô thường thì không. */
+  code, .mono, .duong-dan textarea, #duyetDuongDan {
+    font-family: "Cascadia Mono", Consolas, "SF Mono", ui-monospace, monospace;
+  }
+
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--the); border-bottom: 1px solid var(--vien);
+    padding: 0 20px; display: flex; align-items: center; gap: 20px;
+  }
+  header h1 { font-size: 15px; margin: 0; padding: 14px 0; font-weight: 650; letter-spacing: .2px; }
+  header h1 span { color: var(--mo); font-weight: 400; }
+  nav { display: flex; gap: 4px; margin-left: auto; }
+  nav button {
+    background: none; border: 0; border-bottom: 2px solid transparent;
+    padding: 14px 14px 12px; font: inherit; color: var(--mo); cursor: pointer;
+  }
+  nav button:hover { color: var(--chu); }
+  nav button.chon { color: var(--chinh); border-bottom-color: var(--chinh); font-weight: 600; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  section.tab { display: none; }
+  section.tab.hien { display: block; }
+
+  .the {
+    background: var(--the); border: 1px solid var(--vien); border-radius: var(--bo-goc);
+    padding: 16px 18px; margin-bottom: 14px;
+  }
+  .the > h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--mo); margin: 0 0 14px; font-weight: 650;
+  }
+  .the > h2 .phu { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }
+
+  /* Nhãn / chú thích / ô nhập xếp dọc, chú thích co giãn — nhờ vậy ô nhập của
+     các cột cạnh nhau luôn thẳng hàng dù chú thích cột này dài hơn cột kia.
+     Ô nào không có chú thích vẫn phải có thẻ .goi rỗng (xem dungFormHoSo). */
+  label.o { display: flex; flex-direction: column; margin-bottom: 12px; }
+  label.o > .goi { flex: 1; }
+  label.o > .ten { display: block; font-weight: 600; margin-bottom: 4px; }
+  label.o > .ten b { color: var(--loi); font-weight: 600; }
+  label.o > .goi { display: block; color: var(--mo); font-size: 12.5px; margin-bottom: 5px; }
+  input[type=text], textarea, select {
+    width: 100%; padding: 7px 10px; border: 1px solid var(--vien); border-radius: 7px;
+    background: var(--nen); color: var(--chu); font-size: 13.5px;
+  }
+  select { font-family: inherit; }
+  input[type=text]:focus, textarea:focus, select:focus {
+    outline: 2px solid var(--chinh); outline-offset: -1px; border-color: transparent;
+  }
+  textarea { resize: vertical; min-height: 38px; }
+  .luoi { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 16px; }
+
+  .duong-dan { display: flex; gap: 8px; align-items: flex-start; }
+  .duong-dan textarea { flex: 1; }
+
+  button.nut {
+    border: 1px solid var(--vien); background: var(--the); color: var(--chu);
+    padding: 7px 14px; border-radius: 7px; font: inherit; cursor: pointer; white-space: nowrap;
+  }
+  button.nut:hover { border-color: var(--chinh); color: var(--chinh); }
+  button.nut.dam {
+    background: var(--chinh); border-color: var(--chinh); color: var(--tren-chinh); font-weight: 600;
+  }
+  button.nut.dam:hover { filter: brightness(1.08); color: var(--tren-chinh); }
+  button.nut:disabled { opacity: .5; cursor: default; filter: none; }
+  .hang-nut { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .hang-nut .trang-thai { color: var(--mo); font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--vien); vertical-align: middle; }
+  th { color: var(--mo); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tr.dung td { background: var(--chinh-nen); }
+  td.so { text-align: right; font-variant-numeric: tabular-nums; }
+  .cuon { overflow-x: auto; }
+
+  .the-nho {
+    display: inline-block; padding: 1px 8px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; background: var(--nen); color: var(--mo);
+  }
+  .the-nho.tot { background: var(--tot-nen); color: var(--tot); }
+  .the-nho.tay { background: var(--chinh-nen); color: var(--chinh); }
+  .the-nho.canh { background: var(--canh-nen); color: var(--canh); }
+  .the-nho.tat { background: transparent; color: var(--mo); font-weight: 400; }
+
+  .bao { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; white-space: pre-wrap; }
+  .bao.loi { background: var(--loi-nen); color: var(--loi); }
+  .bao.canh { background: var(--canh-nen); color: var(--canh); }
+  .bao.tot { background: var(--tot-nen); color: var(--tot); }
+
+  pre.bao-cao {
+    background: var(--nen); border-radius: 8px; padding: 12px 14px; margin: 10px 0 0;
+    overflow-x: auto; font-size: 12.5px; line-height: 1.45;
+    font-family: "Cascadia Mono", Consolas, "SF Mono", ui-monospace, monospace;
+  }
+
+  .chon-vai { min-width: 150px; }
+  .ghi-chu { color: var(--mo); font-size: 12.5px; }
+
+  details.slot summary { cursor: pointer; color: var(--mo); font-size: 13px; }
+  details.slot .ds {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 4px 16px; margin-top: 12px;
+  }
+  details.slot label { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  .nhom-slot { grid-column: 1 / -1; color: var(--mo); font-size: 12px; text-transform: uppercase;
+    letter-spacing: .5px; margin-top: 10px; font-weight: 650; }
+
+  .kq-file { border-bottom: 1px solid var(--vien); }
+  .kq-file:last-child { border-bottom: 0; }
+  .kq-file summary {
+    display: flex; gap: 12px; align-items: baseline; padding: 7px 2px; cursor: pointer; font-size: 13.5px;
+  }
+  .kq-file summary .ten { flex: 1; }
+  .kq-file .chi-tiet { padding: 4px 0 12px 14px; font-size: 12.5px; }
+  .kq-file .chi-tiet div { padding: 3px 0; }
+  .kq-file .chi-tiet .truoc { color: var(--mo); }
+  .kq-file .chi-tiet .sau { color: var(--tot); }
+  .kq-file .chi-tiet .ma { color: var(--chinh); }
+
+  .so-lieu { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .so-lieu div { background: var(--nen); border-radius: 8px; padding: 10px 12px; }
+  .so-lieu .n { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .so-lieu .l { color: var(--mo); font-size: 12.5px; }
+
+  dialog {
+    border: 1px solid var(--vien); border-radius: var(--bo-goc); background: var(--the);
+    color: var(--chu); padding: 0; width: min(620px, 92vw); max-height: 80vh;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog .dau { padding: 14px 18px; border-bottom: 1px solid var(--vien); display: flex; gap: 10px; }
+  dialog .than { padding: 6px 10px; overflow: auto; max-height: 52vh; }
+  dialog .chan { padding: 12px 18px; border-top: 1px solid var(--vien); display: flex; gap: 10px; }
+  dialog .than button {
+    display: block; width: 100%; text-align: left; background: none; border: 0;
+    padding: 7px 10px; border-radius: 6px; font: inherit; color: var(--chu); cursor: pointer;
+  }
+  dialog .than button:hover { background: var(--chinh-nen); }
+  dialog .than button .dem { color: var(--mo); font-size: 12px; margin-left: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Biểu mẫu &amp; dân cư <span>— công cụ cục bộ</span></h1>
+  <nav>
+    <button data-tab="bieuMau" class="chon">Thay thế biểu mẫu</button>
+    <button data-tab="danCu">Tạo CSV / JSON dân cư</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ══════════════════ THAY THẾ BIỂU MẪU ══════════════════ -->
+<section class="tab hien" id="tab-bieuMau">
+  <div class="the">
+    <h2>Hồ sơ đơn vị <span class="phu">điền vào mọi biểu mẫu trong thư mục</span></h2>
+    <div class="luoi" id="formHoSo"></div>
+  </div>
+
+  <div class="the">
+    <h2>Nguồn &amp; đích</h2>
+    <label class="o">
+      <span class="ten">Thư mục mẫu trống <b>*</b></span>
+      <span class="goi">Một thư mục, hoặc nhiều file .docx cùng thư mục — mỗi dòng một đường dẫn.</span>
+      <span class="duong-dan">
+        <textarea id="bmNguon" rows="1" spellcheck="false"></textarea>
+        <button class="nut" data-duyet="bmNguon">Duyệt…</button>
+      </span>
+    </label>
+    <label class="o">
+      <span class="ten">Thư mục lưu kết quả <b>*</b></span>
+      <span class="goi">Không được trùng thư mục nguồn. Thiếu thì tự tạo.</span>
+      <span class="duong-dan">
+        <textarea id="bmDich" rows="1" spellcheck="false"></textarea>
+        <button class="nut" data-duyet="bmDich">Duyệt…</button>
+      </span>
+    </label>
+  </div>
+
+  <div class="the">
+    <details class="slot" id="oSlot">
+      <summary>Ô được điền — <span id="slotTom"></span></summary>
+      <div class="ds" id="dsSlot"></div>
+    </details>
+  </div>
+
+  <div class="the">
+    <div class="hang-nut">
+      <button class="nut" id="bmXem">Xem trước</button>
+      <button class="nut dam" id="bmChay">Điền và lưu</button>
+      <span class="trang-thai" id="bmTrangThai"></span>
+    </div>
+  </div>
+
+  <div id="bmKetQua"></div>
+</section>
+
+<!-- ══════════════════ TẠO CSV / JSON DÂN CƯ ══════════════════ -->
+<section class="tab" id="tab-danCu">
+  <div class="the">
+    <h2>Bảng kết xuất <span class="phu">.ods / .xlsx</span></h2>
+    <label class="o">
+      <span class="ten">Thư mục tải về <b>*</b></span>
+      <span class="goi">Có bảng tính nào không liên quan cũng không sao — chỗ nào không phải bảng dân cư thì bỏ qua.</span>
+      <span class="duong-dan">
+        <textarea id="dcNguon" rows="1" spellcheck="false"></textarea>
+        <button class="nut" data-duyet="dcNguon">Duyệt…</button>
+      </span>
+    </label>
+    <div class="hang-nut">
+      <button class="nut" id="dcQuet">Quét &amp; nhận dạng</button>
+      <span class="trang-thai" id="dcTrangThai"></span>
+    </div>
+  </div>
+
+  <div class="the" id="theVai" hidden>
+    <h2>
+      Tên file cho từng bảng
+      <span class="phu">máy điền sẵn tên nó nhận ra — khác thì sửa lại rồi bấm Áp dụng</span>
+    </h2>
+    <div class="luoi" id="oVai"></div>
+    <div class="hang-nut">
+      <button class="nut dam" id="dcApDung">Áp dụng</button>
+      <button class="nut" id="dcXoaTay">Xoá hết, tự nhận dạng lại</button>
+      <span class="trang-thai" id="dcTrangThaiVai"></span>
+    </div>
+    <div id="dcBao" style="margin-top:14px"></div>
+    <div class="cuon"><table>
+      <thead><tr>
+        <th>File có trong thư mục</th><th style="width:150px">Dùng làm</th><th>Máy đoán</th>
+      </tr></thead>
+      <tbody id="dcBang"></tbody>
+    </table></div>
+  </div>
+
+  <div class="the">
+    <h2>Tuỳ chọn</h2>
+    <div class="luoi">
+      <label class="o">
+        <span class="ten">Tên đơn vị cấp xã</span>
+        <span class="goi">Dùng để cắt đuôi địa chỉ.</span>
+        <input type="text" id="dcDonVi" placeholder="Hàng Gòn">
+      </label>
+      <label class="o">
+        <span class="ten">Định dạng xuất</span>
+        <span class="goi">CSV để dán vào Supabase, JSON để script đọc lại.</span>
+        <select id="dcDinhDang"></select>
+      </label>
+      <label class="o">
+        <span class="ten">Chia nhỏ kết quả</span>
+        <span class="goi">Số dòng mỗi file. 0 = một file duy nhất.</span>
+        <input type="text" id="dcChia" inputmode="numeric" placeholder="0">
+      </label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input type="checkbox" id="dcKinh"> Ai không có trong file dân tộc thì ghi <b>KINH</b>
+    </label>
+    <label style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" id="dcGiuNgay"> Giữ nguyên ngày trong .ods (không sửa lỗi đảo ngày ↔ tháng của LibreOffice)
+    </label>
+  </div>
+
+  <div class="the">
+    <h2>Nơi lưu</h2>
+    <label class="o">
+      <span class="ten">Thư mục lưu kết quả <b>*</b></span>
+      <span class="duong-dan">
+        <textarea id="dcDich" rows="1" spellcheck="false"></textarea>
+        <button class="nut" data-duyet="dcDich">Duyệt…</button>
+      </span>
+    </label>
+    <div class="hang-nut">
+      <button class="nut dam" id="dcChay">Tạo file</button>
+      <span class="trang-thai" id="dcTrangThai2"></span>
+    </div>
+  </div>
+
+  <div id="dcKetQua"></div>
+</section>
+
+</main>
+
+<dialog id="hopDuyet">
+  <div class="dau">
+    <input type="text" id="duyetDuongDan" spellcheck="false">
+    <button class="nut" id="duyetLen">↑ Lên</button>
+  </div>
+  <div class="than" id="duyetDs"></div>
+  <div class="chan">
+    <button class="nut dam" id="duyetChon">Chọn thư mục này</button>
+    <button class="nut" id="duyetHuy">Huỷ</button>
+  </div>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const el = (tag, props = {}, con = []) => {
+  const n = Object.assign(document.createElement(tag), props);
+  for (const c of [].concat(con)) n.append(c);
+  return n;
+};
+const so = (n) => (n ?? 0).toLocaleString('vi-VN');
+
+async function api(ten, than = {}) {
+  const r = await fetch('/api/' + ten, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(than),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.loi || 'Lỗi không rõ');
+  return d;
+}
+
+/** Nhớ mọi ô đã gõ, để mở lại trình duyệt không phải nhập lại từ đầu. */
+const NHO = {
+  doc: () => { try { return JSON.parse(localStorage.getItem('bieuMauUI') || '{}'); } catch { return {}; } },
+  ghi(k, v) { const d = this.doc(); d[k] = v; localStorage.setItem('bieuMauUI', JSON.stringify(d)); },
+};
+
+function gan(id, macDinh = '') {
+  const n = document.getElementById(id);
+  const d = NHO.doc();
+  if (n.type === 'checkbox') {
+    n.checked = d[id] ?? macDinh;
+    n.addEventListener('change', () => NHO.ghi(id, n.checked));
+  } else {
+    n.value = d[id] ?? macDinh;
+    n.addEventListener('input', () => NHO.ghi(id, n.value));
+  }
+  return n;
+}
+
+// ─── Chuyển tab ──────────────────────────────────────────────────────────────
+for (const b of document.querySelectorAll('nav button')) {
+  b.addEventListener('click', () => {
+    for (const x of document.querySelectorAll('nav button')) x.classList.toggle('chon', x === b);
+    for (const s of document.querySelectorAll('section.tab')) {
+      s.classList.toggle('hien', s.id === 'tab-' + b.dataset.tab);
+    }
+    NHO.ghi('tab', b.dataset.tab);
+  });
+}
+
+// ─── Hộp duyệt thư mục ───────────────────────────────────────────────────────
+let duyetDich = null;
+const hop = $('#hopDuyet');
+
+async function moThuMuc(p) {
+  try {
+    const d = await api('thu-muc', { p });
+    $('#duyetDuongDan').value = d.duongDan;
+    $('#duyetLen').disabled = !d.cha;
+    $('#duyetLen').dataset.cha = d.cha || '';
+    const ds = $('#duyetDs');
+    ds.textContent = '';
+    if (d.docx || d.bangTinh) {
+      const dem = [d.docx && `${d.docx} file .docx`, d.bangTinh && `${d.bangTinh} bảng tính`]
+        .filter(Boolean).join(' · ');
+      ds.append(el('div', { className: 'bao tot', textContent: 'Thư mục này có ' + dem }));
+    }
+    for (const m of d.muc) {
+      const b = el('button', {}, [el('span', { textContent: '📁 ' + m.ten })]);
+      b.addEventListener('click', () => moThuMuc(m.duongDan));
+      ds.append(b);
+    }
+    if (!d.muc.length) ds.append(el('div', { className: 'ghi-chu', textContent: 'Không có thư mục con.' }));
+  } catch (e) {
+    $('#duyetDs').textContent = '';
+    $('#duyetDs').append(el('div', { className: 'bao loi', textContent: e.message }));
+  }
+}
+
+for (const b of document.querySelectorAll('[data-duyet]')) {
+  b.addEventListener('click', () => {
+    duyetDich = document.getElementById(b.dataset.duyet);
+    hop.showModal();
+    moThuMuc(duyetDich.value.split('\n')[0].trim() || undefined);
+  });
+}
+$('#duyetLen').addEventListener('click', (e) => moThuMuc(e.target.dataset.cha));
+$('#duyetDuongDan').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); moThuMuc(e.target.value.trim()); }
+});
+$('#duyetHuy').addEventListener('click', () => hop.close());
+$('#duyetChon').addEventListener('click', () => {
+  if (duyetDich) {
+    duyetDich.value = $('#duyetDuongDan').value;
+    duyetDich.dispatchEvent(new Event('input'));
+  }
+  hop.close();
+});
+
+// ─── Khởi động: dựng form từ khai báo của server ─────────────────────────────
+let CAU_HINH = null;
+
+async function khoiDong() {
+  CAU_HINH = await (await fetch('/api/khoi-dong')).json();
+  dungFormHoSo();
+  dungDsSlot();
+
+  const d = NHO.doc();
+  gan('bmNguon', CAU_HINH.thuMucLamViec + '\\5. Bieu mau, so THNCĐ');
+  gan('bmDich', CAU_HINH.thuMucLamViec + '\\ket-qua-thncd');
+  gan('dcNguon', CAU_HINH.home + '\\Downloads');
+  gan('dcDich', CAU_HINH.thuMucLamViec + '\\ket-qua-dancu');
+  gan('dcDonVi', '');
+  // Ô chọn phải có sẵn <option> trước khi `gan` khôi phục giá trị đã nhớ.
+  $('#dcDinhDang').append(
+    ...CAU_HINH.dinhDang.map((d) => el('option', { value: d.ma, textContent: d.ten })),
+  );
+  gan('dcDinhDang', 'csv');
+  gan('dcChia', '');
+  gan('dcKinh', false);
+  gan('dcGiuNgay', false);
+
+  if (d.tab) document.querySelector(`nav button[data-tab="${d.tab}"]`)?.click();
+}
+
+/** Form hồ sơ sinh thẳng từ FIELDS — thêm trường trong lib/profile.js là form tự có ô. */
+function dungFormHoSo() {
+  const nho = NHO.doc().hoSo ?? {};
+  const goc = $('#formHoSo');
+  for (const f of CAU_HINH.fields) {
+    const inp = el('input', {
+      type: 'text',
+      id: 'hs-' + f.key,
+      value: nho[f.key] ?? CAU_HINH.mau[f.key] ?? '',
+      placeholder: f.example || '',
+    });
+    inp.addEventListener('input', () => {
+      const h = NHO.doc().hoSo ?? {};
+      h[f.key] = inp.value;
+      NHO.ghi('hoSo', h);
+    });
+    goc.append(el('label', { className: 'o' }, [
+      el('span', { className: 'ten' }, [f.label, f.required ? el('b', { textContent: ' *' }) : '']),
+      el('span', { className: 'goi', textContent: f.hint ?? '' }),
+      inp,
+    ]));
+  }
+}
+
+const hoSo = () => Object.fromEntries(
+  CAU_HINH.fields.map((f) => [f.key, document.getElementById('hs-' + f.key).value.trim()]),
+);
+
+/** Danh sách ô được điền, nhóm theo pack. Chỉ gửi lên những ô người dùng đổi khác mặc định. */
+const TEN_NHOM = { 'cong-dan': 'Token công dân', 'cong-an': 'Ô đơn vị / ngữ cảnh', khac: 'Khác' };
+
+function dungDsSlot() {
+  const nho = NHO.doc().slot ?? {};
+  const goc = $('#dsSlot');
+  for (const nhom of ['cong-an', 'cong-dan', 'khac']) {
+    const ds = CAU_HINH.slots.filter((s) => s.pack === nhom);
+    if (!ds.length) continue;
+    goc.append(el('div', { className: 'nhom-slot', textContent: TEN_NHOM[nhom] }));
+    for (const s of ds) {
+      const cb = el('input', { type: 'checkbox', checked: nho[s.id] ?? s.batSan });
+      cb.dataset.slot = s.id;
+      cb.addEventListener('change', () => {
+        const h = NHO.doc().slot ?? {};
+        h[s.id] = cb.checked;
+        NHO.ghi('slot', h);
+        tomTatSlot();
+      });
+      goc.append(el('label', {}, [cb, el('span', { textContent: s.label })]));
+    }
+  }
+  tomTatSlot();
+}
+
+function slotOverrides() {
+  const o = {};
+  for (const cb of document.querySelectorAll('[data-slot]')) o[cb.dataset.slot] = cb.checked;
+  return o;
+}
+
+function tomTatSlot() {
+  const cb = [...document.querySelectorAll('[data-slot]')];
+  const bat = cb.filter((c) => c.checked).length;
+  $('#slotTom').textContent = `bật ${bat}/${cb.length} ô`;
+}
+
+// ─── Tab biểu mẫu ────────────────────────────────────────────────────────────
+function veKetQuaBieuMau(d, xemTruoc) {
+  const goc = $('#bmKetQua');
+  goc.textContent = '';
+  const the = el('div', { className: 'the' });
+  the.append(el('h2', {}, [
+    xemTruoc ? 'Xem trước' : 'Đã lưu',
+    el('span', { className: 'phu', textContent: `${d.ketQua.length} file · ${so(d.tong)} ô` +
+      (d.outDir ? ` → ${d.outDir}` : '') }),
+  ]));
+
+  if (d.thieu?.length) {
+    the.append(el('div', { className: 'bao canh',
+      textContent: 'Hồ sơ còn thiếu: ' + d.thieu.join(', ') + '. Xem trước đang dùng giá trị mẫu cho các ô đó.' }));
+  }
+  const hong = d.ketQua.filter((k) => k.loi);
+  if (hong.length) {
+    the.append(el('div', { className: 'bao loi',
+      textContent: hong.map((k) => `${k.ten}: ${k.loi}`).join('\n') }));
+  }
+
+  for (const k of d.ketQua) {
+    const ct = el('div', { className: 'chi-tiet' });
+    for (const o of k.o ?? []) {
+      ct.append(el('div', {}, [
+        el('span', { className: 'ma', textContent: `[${o.slotId}] ` }),
+        el('span', { className: 'truoc', textContent: o.before }),
+        el('span', { textContent: '  →  ' }),
+        el('span', { className: 'sau', textContent: o.after }),
+      ]));
+    }
+    if (!k.o?.length) ct.append(el('div', { className: 'ghi-chu', textContent: 'Không ô nào khớp.' }));
+    the.append(el('details', { className: 'kq-file' }, [
+      el('summary', {}, [
+        el('span', { className: 'ten', textContent: k.ten }),
+        el('span', { className: 'the-nho ' + (k.so ? 'tot' : 'tat'), textContent: k.so + ' ô' }),
+      ]),
+      ct,
+    ]));
+  }
+  goc.append(the);
+}
+
+async function chayBieuMau(xemTruoc) {
+  const tt = $('#bmTrangThai');
+  $('#bmXem').disabled = $('#bmChay').disabled = true;
+  tt.textContent = xemTruoc ? 'Đang dò…' : 'Đang điền…';
+  $('#bmKetQua').textContent = '';
+  try {
+    const than = {
+      nguon: $('#bmNguon').value,
+      outDir: $('#bmDich').value.trim(),
+      profile: hoSo(),
+      slotOverrides: slotOverrides(),
+    };
+    const d = await api(xemTruoc ? 'bieu-mau/quet' : 'bieu-mau/chay', than);
+    veKetQuaBieuMau(d, xemTruoc);
+    tt.textContent = '';
+  } catch (e) {
+    tt.textContent = '';
+    $('#bmKetQua').append(el('div', { className: 'bao loi', textContent: e.message }));
+  } finally {
+    $('#bmXem').disabled = $('#bmChay').disabled = false;
+  }
+}
+
+$('#bmXem').addEventListener('click', () => chayBieuMau(true));
+$('#bmChay').addEventListener('click', () => chayBieuMau(false));
+
+// ─── Tab dân cư ──────────────────────────────────────────────────────────────
+/**
+ * Tên file người dùng gõ cho từng vai: {nk|hk|dt|tg: tên hoặc đường dẫn}.
+ *
+ * Rỗng = để máy tự nhận dạng. Server nhận cả tên đầy đủ lẫn một mẩu tên, nên gõ
+ * "dantoc" là đủ, không phải chép cả đường dẫn.
+ */
+let CHI_DINH = NHO.doc().chiDinh ?? {};
+const MA_TAT = { nhanKhau: 'nk', hoKhau: 'hk', danToc: 'dt', tonGiao: 'tg' };
+
+function luuChiDinh() { NHO.ghi('chiDinh', CHI_DINH); }
+
+/** Thứ tự hiển thị theo cách người dùng quen gọi, không theo thứ tự xử lý. */
+const THU_TU_O = ['nk', 'hk', 'dt', 'tg'];
+const VAI_THEO_O = () =>
+  THU_TU_O.map((tat) => CAU_HINH.vai.find((v) => MA_TAT[v.ma] === tat));
+
+/** Bốn ô nhập, dựng một lần rồi mỗi lần quét chỉ điền lại giá trị. */
+function dungOVai() {
+  const goc = $('#oVai');
+  if (goc.children.length) return;
+  for (const v of VAI_THEO_O()) {
+    const tat = MA_TAT[v.ma];
+    const inp = el('input', { type: 'text', id: 'vai-' + tat, placeholder: 'để trống = máy tự nhận' });
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); apDungVai(); }
+    });
+    goc.append(el('label', { className: 'o' }, [
+      el('span', { className: 'ten', textContent: `${v.ten} (${tat})` }),
+      el('span', { className: 'goi' }),
+      inp,
+    ]));
+  }
+}
+
+const oVai = (tat) => document.getElementById('vai-' + tat);
+
+/** Gom bốn ô thành CHI_DINH rồi quét lại. */
+function apDungVai() {
+  CHI_DINH = {};
+  for (const v of CAU_HINH.vai) {
+    const s = oVai(MA_TAT[v.ma]).value.trim();
+    if (s) CHI_DINH[MA_TAT[v.ma]] = s;
+  }
+  luuChiDinh();
+  quetDanCu();
+}
+
+async function quetDanCu() {
+  const tt = $('#dcTrangThai');
+  $('#dcQuet').disabled = true;
+  tt.textContent = 'Đang đọc…';
+  $('#dcTrangThaiVai').textContent = '';
+  try {
+    const d = await api('dan-cu/quet', {
+      nguon: $('#dcNguon').value,
+      chiDinh: CHI_DINH,
+      doiNgayThang: !$('#dcGiuNgay').checked,
+    });
+    veBangVai(d);
+    tt.textContent = `${d.daNgo.length} file`;
+  } catch (e) {
+    tt.textContent = '';
+    $('#theVai').hidden = false;
+    dungOVai();
+    $('#dcBang').textContent = '';
+    $('#dcBao').textContent = '';
+    $('#dcBao').append(el('div', { className: 'bao loi', textContent: e.message }));
+  } finally {
+    $('#dcQuet').disabled = false;
+  }
+}
+
+/** Nhãn cho biết vai được chốt nhờ đâu — nội dung là chắc, tên file phải soát lại. */
+const NHAN_BOI = {
+  tay: ['tay', 'bạn chỉ định'],
+  'nội dung': ['tot', 'theo nội dung'],
+  'tên file': ['canh', 'đoán theo TÊN FILE — soát lại'],
+};
+
+function veBangVai(d) {
+  $('#theVai').hidden = false;
+  dungOVai();
+
+  // Điền sẵn tên máy nhận ra, nhưng KHÔNG đè lên chữ người dùng đang gõ dở:
+  // ô nào người dùng đã tự điền thì để nguyên, kể cả khi gõ sai và đang báo lỗi.
+  for (const v of VAI_THEO_O()) {
+    const tat = MA_TAT[v.ma];
+    const inp = oVai(tat);
+    const ten = d.chon[v.ma] ? d.chon[v.ma].split(/[\\/]/).pop() : '';
+    if (!CHI_DINH[tat]) inp.value = ten;
+    const boi = NHAN_BOI[d.boi[v.ma]];
+    const goi = inp.previousElementSibling;
+    goi.textContent = boi ? boi[1] : 'chưa có file nào';
+    goi.style.color = boi && boi[0] === 'canh' ? 'var(--canh)' : '';
+  }
+
+  const bao = $('#dcBao');
+  bao.textContent = '';
+  for (const g of d.ghiChu) bao.append(el('div', { className: 'bao canh', textContent: g }));
+  for (const l of d.loi) bao.append(el('div', { className: 'bao loi', textContent: l }));
+
+  // Bảng chỉ để soi: file nào có trong thư mục, máy nghĩ nó là gì. Muốn đổi thì
+  // sửa ở bốn ô trên — một chỗ quyết định, không hai chỗ giẫm chân nhau.
+  const tb = $('#dcBang');
+  tb.textContent = '';
+  for (const n of d.daNgo) {
+    const boi = NHAN_BOI[n.boi];
+    tb.append(el('tr', { className: n.dang ? 'dung' : '' }, [
+      el('td', { textContent: n.ten }),
+      el('td', {}, [
+        n.dang
+          ? el('span', { className: 'the-nho ' + (boi ? boi[0] : 'tot'),
+              textContent: CAU_HINH.vai.find((v) => v.ma === n.dang).ten })
+          : el('span', { className: 'the-nho tat', textContent: '—' }),
+      ]),
+      el('td', { className: 'ghi-chu', textContent:
+        (n.doan ? CAU_HINH.vai.find((v) => v.ma === n.doan).ten + ' — ' : '') + n.dauHieu }),
+    ]));
+  }
+}
+
+function veKetQuaDanCu(d) {
+  const goc = $('#dcKetQua');
+  goc.textContent = '';
+  const t = d.thongKe;
+  const the = el('div', { className: 'the' });
+  the.append(el('h2', {}, ['Kết quả', el('span', { className: 'phu', textContent: d.outDir })]));
+
+  the.append(el('div', { className: 'bao tot',
+    textContent: d.tenFile.map((f) => `${f.ten} — ${so(f.dong)} dòng`).join('\n') }));
+  for (const g of d.ghiChu) the.append(el('div', { className: 'bao canh', textContent: g }));
+
+  const oSo = (n, l) => el('div', {}, [
+    el('div', { className: 'n', textContent: so(n) }),
+    el('div', { className: 'l', textContent: l }),
+  ]);
+  const luoi = el('div', { className: 'so-lieu' }, [
+    oSo(d.soBanGhi, 'bản ghi xuất ra'),
+    oSo(t.hangDoc, 'dòng đã đọc'),
+    oSo(t.thieuCccd, 'bỏ vì không có CCCD'),
+    oSo(t.trungCccd, 'trùng CCCD, giữ dòng đầu'),
+    oSo(t.coDanToc, 'có dân tộc' + (t.macDinhKinh ? ` (+${so(t.macDinhKinh)} mặc định KINH)` : '')),
+    oSo(t.coTonGiao, 'có tôn giáo'),
+    oSo(t.soHo, 'hộ suy được quan hệ'),
+    oSo(t.hoKhongBietChuHo, 'hộ không rõ chủ hộ'),
+    oSo(t.khongNgaySinh, 'thiếu/sai ngày sinh'),
+    oSo(t.khongGioiTinh, 'không đọc được giới tính'),
+    oSo(d.thongKeNgay?.oNgayDaDoi ?? 0, 'ô ngày đã đảo lại'),
+    oSo(d.soCanhBao, 'dòng vào canh-bao.csv'),
+  ]);
+  the.append(luoi);
+
+  // Nguyên bản báo cáo dòng lệnh — chứa mấy số mà ô vuông ở trên không kể hết
+  // (hàng tiêu đề lặp, người ở file lọc không thấy trong bảng nhân khẩu, cách
+  // xác định chủ hộ...). Cuộn dài nên gấp lại, ai cần soát thì mở.
+  if (d.baoCao) {
+    the.append(el('details', { style: 'margin-top:16px' }, [
+      el('summary', { className: 'ghi-chu', textContent: 'Báo cáo đầy đủ (như khi chạy dòng lệnh)' }),
+      el('pre', { className: 'bao-cao', textContent: d.baoCao.trim() }),
+    ]));
+  }
+
+  const qh = Object.entries(t.quanHe).sort((a, b) => b[1] - a[1]);
+  if (qh.length) {
+    the.append(el('h2', { style: 'margin-top:18px' }, ['Quan hệ với chủ hộ']));
+    const tbl = el('table', {}, [el('tbody', {}, qh.map(([ten, n]) =>
+      el('tr', {}, [el('td', { textContent: ten }), el('td', { className: 'so', textContent: so(n) })])))]);
+    the.append(el('div', { className: 'cuon' }, [tbl]));
+  }
+  goc.append(the);
+}
+
+// Tên đã gõ được nhớ lại giữa các lần mở. Trỏ sang thư mục nguồn khác thì tên
+// cũ thành treo lơ lửng và chặn không cho chạy — nên phải có lối xoá sạch.
+$('#dcApDung').addEventListener('click', apDungVai);
+$('#dcXoaTay').addEventListener('click', () => {
+  CHI_DINH = {};
+  luuChiDinh();
+  for (const v of CAU_HINH.vai) oVai(MA_TAT[v.ma]).value = '';
+  quetDanCu();
+});
+
+$('#dcQuet').addEventListener('click', () => quetDanCu());
+$('#dcChay').addEventListener('click', async () => {
+  const tt = $('#dcTrangThai2');
+  $('#dcChay').disabled = true;
+  tt.textContent = 'Đang chuyển đổi…';
+  $('#dcKetQua').textContent = '';
+  try {
+    const d = await api('dan-cu/chay', {
+      nguon: $('#dcNguon').value,
+      chiDinh: CHI_DINH,
+      outDir: $('#dcDich').value.trim(),
+      donVi: $('#dcDonVi').value,
+      kinh: $('#dcKinh').checked,
+      chia: $('#dcChia').value,
+      doiNgayThang: !$('#dcGiuNgay').checked,
+      dinhDang: $('#dcDinhDang').value,
+    });
+    veKetQuaDanCu(d);
+    tt.textContent = '';
+  } catch (e) {
+    tt.textContent = '';
+    $('#dcKetQua').append(el('div', { className: 'bao loi', textContent: e.message }));
+  } finally {
+    $('#dcChay').disabled = false;
+  }
+});
+
+khoiDong();
+</script>
+</body>
+</html>

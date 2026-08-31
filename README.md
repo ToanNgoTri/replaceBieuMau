@@ -19,6 +19,145 @@ Engine **chỉ thay thế vùng dấu chấm**, không bao giờ ghi đè nội 
 chỉ những ô khớp với khai báo trong `lib/slots/` mới được đụng tới — đây là bảo
 đảm bằng thiết kế, không phải bằng kiểm tra lúc chạy.
 
+## Giao diện
+
+```bash
+npm install
+npm run dev         # rồi mở http://127.0.0.1:3000
+PORT=8080 npm run dev
+```
+
+`npm run ui` là tên gọi khác của cùng lệnh đó.
+
+Không cần cài thêm gì — máy chủ chỉ dùng `node:http` và chính `lib/`. Nó đọc
+ghi được cả ổ đĩa nên **chỉ nghe trên 127.0.0.1**, không mở ra ngoài mạng.
+
+Hai thẻ, đúng hai việc của dự án:
+
+**Thay thế biểu mẫu** — form hồ sơ đơn vị sinh thẳng từ `FIELDS` trong
+`lib/profile.js` (thêm trường ở đó là form tự có thêm ô), chọn thư mục mẫu và
+thư mục đích, bật/tắt từng ô được điền. Nút **Xem trước** chạy `dryRun`: đếm ô
+và in ra từng chỗ *trước → sau* mà không ghi file nào.
+
+**Tạo CSV / JSON dân cư** — quét thư mục tải về rồi hiện **bốn ô nhập tên file**:
+`nhân khẩu (nk)`, `hộ khẩu (hk)`, `dân tộc (dt)`, `tôn giáo (tg)`. Máy điền sẵn
+tên nó nhận ra; bản kết xuất đặt tên khác thì sửa lại rồi bấm **Áp dụng**. Gõ
+một mẩu tên là đủ ("dantoc"), không phải chép cả đường dẫn — miễn là mẩu đó
+không khớp trùng file khác. Ô để trống nghĩa là để máy tự nhận dạng, còn
+**Xoá hết** đưa cả bốn ô về tự động.
+
+Bảng bên dưới chỉ để soi: thư mục có những file nào, máy nghĩ mỗi file là gì.
+Muốn đổi thì sửa ở bốn ô trên — một chỗ quyết định, không hai chỗ giẫm chân nhau.
+
+### Định dạng xuất
+
+CSV là mặc định — đúng quy ước nhập liệu của Supabase. JSON là cùng đống bản
+ghi ấy dưới dạng mảng đối tượng, ô rỗng thành `null`, để script đọc lại mà
+không phải tự phân tích CSV:
+
+| Chọn | Dòng lệnh | File ra |
+|---|---|---|
+| CSV | (mặc định) | `population.csv`, `canh-bao.csv` |
+| JSON | `--json` | `population.json`, `canh-bao.json` |
+| cả hai | `--ca-hai` | cả bốn file trên |
+
+Trên giao diện là ô **Định dạng xuất**. `--chia` cắt mẻ cho cả hai định dạng,
+tên file thành `population-01.csv`, `population-02.csv`…
+
+### Ba dạng file dân tộc / tôn giáo
+
+Bộ chuẩn gồm bốn file: `nk` toàn bộ nhân khẩu, `hk` chủ hộ, `dt` và `tg` giống
+`nk` nhưng có thêm cột giá trị. Engine đọc được cả ba dạng kết xuất:
+
+| Dạng | Giá trị nằm ở đâu | Cách nhận |
+|---|---|---|
+| **cột `nhom`** (từ 31/8/2026) | cột `nhom` mỗi dòng, kèm mã: `01-Kinh` | tiêu đề `nhom` (+ `nhom_value` là mã) |
+| **theo dòng** | cột cuối mỗi dòng dữ liệu | cột tên `DANTOC`/`TONGIAO`, hoặc cột không tên mà quá nửa số ô khớp từ vựng |
+| **theo khối** (cũ) | ô cuối hàng tiêu đề, áp cho mọi dòng bên dưới | như trên, nhưng đọc ở hàng tiêu đề |
+
+Dạng `nhom` đặt tên cột hẳn hoi nhưng **file dân tộc và file tôn giáo có tiêu đề
+giống hệt nhau**, nên vẫn phải nếm từ vựng để biết file nào là file nào — chỉ là
+nếm đúng một cột thay vì dò cả bảng. Mã ở đầu ô phải cắt bỏ trước khi ghi, và có
+tới ba lối viết mã, cả ba đều có thật trong cùng một file (`tachNhom`):
+
+```
+01-Kinh          mã hai số, gạch nối thường
+3111-Châu Ro     mã nhóm phụ, tới năm số (01011-Tơ Buăn)
+99 – Khác        gạch ngang dài, khoảng trắng hai bên
+```
+
+Bỏ sót hai dạng sau là 428/24.412 người mất dân tộc — toàn bộ các nhóm phụ.
+
+Dạng theo dòng chắc hơn hẳn. Dạng theo khối có một cái bẫy: bản kết xuất phân
+trang 100 dòng và **chỉ trang đầu mỗi nhóm ghi giá trị**, các trang sau lặp lại
+hàng tiêu đề với ô cuối là tên cột:
+
+```
+100 × Chơ Ro          ← trang 1, có giá trị
+100 × Phân loại nhà ở ← trang 2…6, VẪN LÀ Chơ Ro
+ 86 × Phân loại nhà ở
+```
+
+Nên hàng tiêu đề không có giá trị phải hiểu là "nhóm cũ chạy tiếp". Hiểu thành
+"hết giá trị" là mất dân tộc của 1278/2080 người — đúng phần đuôi của mọi nhóm
+đông hơn một trang.
+
+Giá trị nào không nằm trong 54 dân tộc / danh sách tôn giáo thì bỏ trống, không
+chép nguyên vào CSDL — ghi bừa là bịa dữ liệu. Sửa từ vựng ở `nhandang.js`.
+
+### Ba tầng quyết định vai
+
+| Ưu tiên | Căn cứ | Nhãn trên giao diện |
+|---|---|---|
+| 1 | Người dùng chỉ định | `chỉ định tay` |
+| 2 | Nội dung file (`nhandang.js`) | `theo nội dung` |
+| 3 | Tên file (`GOI_Y_TEN` trong `nguon.js`) | `đoán theo TÊN FILE — soát lại` |
+
+Tên file **chỉ là gợi ý**, vì bản kết xuất đổi tên theo từng lần tải về. Nó chỉ
+được lên tiếng khi nội dung đã im lặng, và không bao giờ kéo được một file mà
+nội dung đã xếp vào vai khác. Đơn vị nào đặt tên theo kiểu riêng thì thêm từ
+khoá vào `GOI_Y_TEN` — đó là dữ liệu, không phải luật:
+
+```js
+export const GOI_Y_TEN = {
+  nhanKhau: ['nhankhau', 'toanbonhankhau', 'danhsachnhankhau'],
+  hoKhau: ['hokhau', 'danhsachho', 'chuho'],
+  danToc: ['dantoc'],
+  tonGiao: ['tongiao'],
+};
+```
+
+Từ khoá đã bỏ dấu và bỏ hết ký tự ngăn cách, nên `Dân tộc`, `dan-toc`, `DANTOC`
+đều khớp `'dantoc'`. Tên khớp **hai** vai thì bỏ qua chứ không chọn bừa —
+`congDanTheoDanToc` chứa cả "congdan" lẫn "dantoc", đoán mò ở đó là cách chắc
+nhất để nhét nhầm bảng vào đường ống.
+
+Đoán sai theo tên cũng không âm thầm làm hỏng dữ liệu: `dinhViCot` đòi đủ cột
+bắt buộc, nhét nhầm bảng vào là báo lỗi ngay chứ không cho ra CSV rác.
+
+Đây cũng là bốn cờ mới của dòng lệnh, nhận cả đường dẫn đầy đủ lẫn một mẩu tên
+file (miễn là không khớp trùng file khác):
+
+```bash
+npm run convert -- ~/Downloads ./ket-qua-dancu --nk "DS cong dan.ods" --dt loc-dantoc.xlsx
+```
+
+Luật ghép nguồn nằm ở `lib/population/nguon.js`, trình tự chạy ở
+`lib/population/chay.js` — dòng lệnh và giao diện dùng chung, nên không thể cho
+ra hai kết quả khác nhau.
+
+### Log
+
+Mỗi lượt chạy in **cùng một bản báo cáo** ra hai chỗ:
+
+- **terminal đang chạy `npm run dev`** — kèm dấu thời gian, cuộn lại xem được
+  các lượt trước;
+- **trong trang**, gấp sẵn dưới mục *Báo cáo đầy đủ (như khi chạy dòng lệnh)*.
+
+Cùng hàm `banBaoCao` trong `lib/population/baocao.js` sinh ra cả hai, nên không
+có chuyện màn hình nói một đằng terminal nói một nẻo. Điền biểu mẫu thì log gọn
+hơn: một dòng ghi số file, số ô và thư mục đích.
+
 ## Chạy thử
 
 ```bash
@@ -70,6 +209,7 @@ lib/slots/matcher.js  nhận diện ô trống, xử lý chồng lấn và chữ
 lib/slots/definitions.js  ★ khai báo ô đơn vị — tri thức nghiệp vụ ở đây
 lib/slots/tokens.js   ★ khai báo token công dân theo từ vựng ppv2web
 lib/profile.js      định nghĩa trường hồ sơ đơn vị (UI đọc để tự sinh form)
+scripts/ui.mjs      máy chủ cục bộ + API; giao diện ở `ui/index.html`
 
 lib/sheet/xlsx.js       đọc .xlsx → mảng hàng (chuỗi)
 lib/sheet/ods.js        đọc .ods  → mảng hàng, kèm sửa lỗi ngày của LibreOffice
@@ -78,7 +218,10 @@ lib/population/nhandang.js ★ nhận ra file nào là bảng gì, bằng nội 
 lib/population/fields.js   ★ chuẩn hoá từng trường dân cư — CCCD, ngày, địa chỉ
 lib/population/quanhe.js   ★ suy quan hệ với chủ hộ từ cây gia đình trong hộ
 lib/population/convert.js  ★ ghép các bảng kết xuất thành bản ghi `population`
+lib/population/nguon.js    file nào đóng vai bảng nào — nhận dạng + chỉ định tay
+lib/population/chay.js     trình tự một lượt chuyển đổi, dùng chung CLI ↔ giao diện
 lib/population/csv.js      xuất CSV đúng quy ước nhập liệu của Supabase
+lib/population/json.js     xuất JSON — cùng bản ghi, ô rỗng thành null
 ```
 
 ### Ba vấn đề kỹ thuật cốt lõi
@@ -349,7 +492,9 @@ theo tên — vẫn ra 5.325/5.353 hộ.
 |---|---|
 | `--don-vi "Hàng Gòn"` | tên đơn vị cấp xã, dùng để cắt đuôi địa chỉ |
 | `--kinh` | ai không có tên trong file dân tộc thì ghi `KINH` |
-| `--chia 5000` | cắt CSV thành nhiều file, mỗi file bấy nhiêu dòng |
+| `--chia 5000` | cắt kết quả thành nhiều file, mỗi file bấy nhiêu dòng |
+| `--json` | xuất `population.json` thay vì `.csv` |
+| `--ca-hai` | xuất cả `.csv` lẫn `.json` |
 | `--khong-doi-ngay` | giữ nguyên ngày trong `.ods`, không sửa lỗi LibreOffice |
 
 ## Nhận dạng file bằng nội dung, không bằng tên
