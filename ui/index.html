@@ -593,22 +593,22 @@ $('#bmChay').addEventListener('click', () => chayBieuMau(false));
 
 // ─── Tab dân cư ──────────────────────────────────────────────────────────────
 /**
- * Tên file người dùng gõ cho từng vai: {nk|hk|dt|tg: tên hoặc đường dẫn}.
+ * Tên file người dùng gõ cho từng vai: {nk|hk|dt|tg|xoa: tên hoặc đường dẫn}.
  *
  * Rỗng = để máy tự nhận dạng. Server nhận cả tên đầy đủ lẫn một mẩu tên, nên gõ
  * "dantoc" là đủ, không phải chép cả đường dẫn.
  */
 let CHI_DINH = NHO.doc().chiDinh ?? {};
-const MA_TAT = { nhanKhau: 'nk', hoKhau: 'hk', danToc: 'dt', tonGiao: 'tg' };
+const MA_TAT = { nhanKhau: 'nk', hoKhau: 'hk', danToc: 'dt', tonGiao: 'tg', daXoa: 'xoa' };
 
 function luuChiDinh() { NHO.ghi('chiDinh', CHI_DINH); }
 
 /** Thứ tự hiển thị theo cách người dùng quen gọi, không theo thứ tự xử lý. */
-const THU_TU_O = ['nk', 'hk', 'dt', 'tg'];
+const THU_TU_O = ['nk', 'hk', 'dt', 'tg', 'xoa'];
 const VAI_THEO_O = () =>
   THU_TU_O.map((tat) => CAU_HINH.vai.find((v) => MA_TAT[v.ma] === tat));
 
-/** Bốn ô nhập, dựng một lần rồi mỗi lần quét chỉ điền lại giá trị. */
+/** Các ô nhập vai, dựng một lần rồi mỗi lần quét chỉ điền lại giá trị. */
 function dungOVai() {
   const goc = $('#oVai');
   if (goc.children.length) return;
@@ -628,7 +628,7 @@ function dungOVai() {
 
 const oVai = (tat) => document.getElementById('vai-' + tat);
 
-/** Gom bốn ô thành CHI_DINH rồi quét lại. */
+/** Gom các ô vai thành CHI_DINH rồi quét lại. */
 function apDungVai() {
   CHI_DINH = {};
   for (const v of CAU_HINH.vai) {
@@ -694,7 +694,7 @@ function veBangVai(d) {
   for (const l of d.loi) bao.append(el('div', { className: 'bao loi', textContent: l }));
 
   // Bảng chỉ để soi: file nào có trong thư mục, máy nghĩ nó là gì. Muốn đổi thì
-  // sửa ở bốn ô trên — một chỗ quyết định, không hai chỗ giẫm chân nhau.
+  // sửa ở các ô vai phía trên — một chỗ quyết định, không hai chỗ giẫm chân nhau.
   const tb = $('#dcBang');
   tb.textContent = '';
   for (const n of d.daNgo) {
@@ -735,6 +735,10 @@ function veKetQuaDanCu(d) {
     oSo(t.trungCccd, 'trùng CCCD, giữ dòng đầu'),
     oSo(t.coDanToc, 'có dân tộc' + (t.macDinhKinh ? ` (+${so(t.macDinhKinh)} mặc định KINH)` : '')),
     oSo(t.coTonGiao, 'có tôn giáo'),
+    ...(t.xoaDoc ? [
+      oSo(t.daXoa, 'đã xoá (DELETED)'),
+      oSo(t.xoaVanDangO, 'đã xoá nhưng vẫn đang ở'),
+    ] : []),
     oSo(t.soHo, 'hộ suy được quan hệ'),
     oSo(t.hoKhongBietChuHo, 'hộ không rõ chủ hộ'),
     oSo(t.khongNgaySinh, 'thiếu/sai ngày sinh'),

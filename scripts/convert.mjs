@@ -18,6 +18,7 @@
  * Chỉ định vai khi bản kết xuất đặt tên/nhãn khác, máy đoán không ra:
  *   --nk <file>   bảng nhân khẩu      --dt <file>   bảng dân tộc
  *   --hk <file>   bảng hộ khẩu        --tg <file>   bảng tôn giáo
+ *   --xoa <file>  bảng nhân khẩu đã xoá (cùng dạng bảng nhân khẩu → DELETED = true)
  *   (gõ cả đường dẫn hoặc chỉ một mẩu tên file, miễn là không lẫn với file khác)
  *
  * Ví dụ:
@@ -34,7 +35,7 @@ import { CAC_VAI, VIET_TAT, tenVai } from '../lib/population/nguon.js';
 const CACH_DUNG =
   'Dùng: node scripts/convert.mjs <thư mục tải về | các file> <thư mục đích> ' +
   '[--don-vi "Hàng Gòn"] [--kinh] [--chia 5000] [--khong-doi-ngay] [--json | --ca-hai] ' +
-  '[--nk file] [--hk file] [--dt file] [--tg file]';
+  '[--nk file] [--hk file] [--dt file] [--tg file] [--xoa file]';
 
 const argv = process.argv.slice(2);
 const co = (ten) => argv.includes(ten);
@@ -91,7 +92,7 @@ for (const n of [...quet.daNgo].sort((a, b) => (b.vai ? 1 : 0) - (a.vai ? 1 : 0)
   const dung = vaiDaChon.get(path.resolve(n.file));
   const nhan = dung ? tenVai(dung) : '(bỏ qua)';
   const boi = dung && quet.boi[dung] !== 'nội dung' ? ` ← ${quet.boi[dung]}` : '';
-  console.log(`  ${nhan.padEnd(10)} ${n.ten.padEnd(46)} ${n.dauHieu}${boi}`);
+  console.log(`  ${nhan.padEnd(16)} ${n.ten.padEnd(46)} ${n.dauHieu}${boi}`);
 }
 
 for (const g of quet.ghiChu) console.log(`\n  ${g}`);

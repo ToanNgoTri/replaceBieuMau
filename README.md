@@ -39,15 +39,16 @@ Hai thẻ, đúng hai việc của dự án:
 thư mục đích, bật/tắt từng ô được điền. Nút **Xem trước** chạy `dryRun`: đếm ô
 và in ra từng chỗ *trước → sau* mà không ghi file nào.
 
-**Tạo CSV / JSON dân cư** — quét thư mục tải về rồi hiện **bốn ô nhập tên file**:
-`nhân khẩu (nk)`, `hộ khẩu (hk)`, `dân tộc (dt)`, `tôn giáo (tg)`. Máy điền sẵn
+**Tạo CSV / JSON dân cư** — quét thư mục tải về rồi hiện **năm ô nhập tên file**:
+`nhân khẩu (nk)`, `hộ khẩu (hk)`, `dân tộc (dt)`, `tôn giáo (tg)`,
+`nhân khẩu đã xoá (xoa)`. Máy điền sẵn
 tên nó nhận ra; bản kết xuất đặt tên khác thì sửa lại rồi bấm **Áp dụng**. Gõ
 một mẩu tên là đủ ("dantoc"), không phải chép cả đường dẫn — miễn là mẩu đó
 không khớp trùng file khác. Ô để trống nghĩa là để máy tự nhận dạng, còn
-**Xoá hết** đưa cả bốn ô về tự động.
+**Xoá hết** đưa cả năm ô về tự động.
 
 Bảng bên dưới chỉ để soi: thư mục có những file nào, máy nghĩ mỗi file là gì.
-Muốn đổi thì sửa ở bốn ô trên — một chỗ quyết định, không hai chỗ giẫm chân nhau.
+Muốn đổi thì sửa ở năm ô trên — một chỗ quyết định, không hai chỗ giẫm chân nhau.
 
 ### Định dạng xuất
 
@@ -105,6 +106,40 @@ Nên hàng tiêu đề không có giá trị phải hiểu là "nhóm cũ chạy
 Giá trị nào không nằm trong 54 dân tộc / danh sách tôn giáo thì bỏ trống, không
 chép nguyên vào CSDL — ghi bừa là bịa dữ liệu. Sửa từ vựng ở `nhandang.js`.
 
+### Nhân khẩu đã xoá — cột `DELETED`
+
+File thứ năm, không bắt buộc: danh sách nhân khẩu **đã xoá**, cùng dạng cột với
+`nk` (ví dụ `nk xoa.xlsx`). Có nó thì `population` thành bảng tổng: người đang ở
+và người đã xoá chung một bảng, phân biệt bằng cột boolean `DELETED` (cột cuối).
+ppv2 đọc cột này để tô xám và ghi "ĐÃ XÓA".
+
+| Trường hợp | Ghi vào CSDL |
+|---|---|
+| có trong `nk` | `DELETED = false`, y hệt khi không có file xoá |
+| chỉ có trong file xoá | `DELETED = true` |
+| có trong cả hai (xoá ở hộ cũ, nhập hộ mới) | chỉ bản ghi trong `nk`, `DELETED = false` |
+| xoá nhiều lần cùng một CCCD | giữ dòng đầu |
+
+Vì CCCD là khoá chính, mỗi người chỉ một dòng — và bản đang ở luôn thắng. Bản
+kết xuất Hàng Gòn 10/2026: 3.663 dòng xoá → 2.831 người `DELETED = true`, 809
+dòng là người vẫn đang ở hộ khác, 23 dòng xoá lặp.
+
+Quan hệ của người đã xoá được suy theo **chủ hộ hiện tại** của số hộ cũ, gộp
+chung cây cha/mẹ với người đang ở — nhưng chỉ nhận kết quả cho người đã xoá,
+quan hệ của người đang ở không đổi. `--kinh` không áp cho người đã xoá: họ vắng
+mặt trong file dân tộc vì đã xoá, không phải vì là người Kinh.
+
+Bảng xoá giống hệt bảng nhân khẩu từng cột nên nội dung không phân biệt được.
+Đây là chỗ duy nhất **tên file lật kết quả nhận dạng**: nội dung nói "nhân khẩu"
+mà tên có chữ `xoa` thì là bảng đã xoá. Đặt tên khác thì chỉ định tay
+(`--xoa <file>` hoặc ô `xoa` trên giao diện).
+
+Bảng `population` trên Supabase phải có cột này trước khi nhập:
+
+```sql
+alter table population add column if not exists "DELETED" boolean not null default false;
+```
+
 ### Ba tầng quyết định vai
 
 | Ưu tiên | Căn cứ | Nhãn trên giao diện |
@@ -124,6 +159,7 @@ export const GOI_Y_TEN = {
   hoKhau: ['hokhau', 'danhsachho', 'chuho'],
   danToc: ['dantoc'],
   tonGiao: ['tongiao'],
+  daXoa: ['xoa'],
 };
 ```
 
@@ -135,7 +171,7 @@ nhất để nhét nhầm bảng vào đường ống.
 Đoán sai theo tên cũng không âm thầm làm hỏng dữ liệu: `dinhViCot` đòi đủ cột
 bắt buộc, nhét nhầm bảng vào là báo lỗi ngay chứ không cho ra CSV rác.
 
-Đây cũng là bốn cờ mới của dòng lệnh, nhận cả đường dẫn đầy đủ lẫn một mẩu tên
+Đây cũng là năm cờ của dòng lệnh (`--nk --hk --dt --tg --xoa`), nhận cả đường dẫn đầy đủ lẫn một mẩu tên
 file (miễn là không khớp trùng file khác):
 
 ```bash
