@@ -827,3 +827,27 @@ Mở Terminal (Cmd + Space → gõ Terminal → Enter), dán nguyên hai dòng n
   Nếu tiện hơn thì gõ thẳng trong khung chat này, thêm dấu ! ở đầu:
 
   !cd ~/Toan/code/bieu-mau && npm run convert -- ~/Downloads ./ket-qua-dancu --kinh
+## Tạm trú — bảng `tamtru`
+
+Bản kết xuất tạm trú (`import/TAMTRU.xlsx`, cột `HOTEN NGAYSINH GIOITINH CCCD
+CHUHO NOITAMTRU NGAYDEN NOITHTRU`) đi đường riêng, ra `tamtru.csv` cho bảng
+`tamtru` — chỉ 11 cột tạm trú thật sự dùng (`QUANHE HOTEN NAMSINH GIOITINH CCCD
+SOHOK NOITHTRU GHICHU NOITAMTRU LOCATION NGAYDEN`, xem
+`ppv2web/sql/tao-bang-tamtru.sql`):
+
+```bash
+npm run tamtru -- import/TAMTRU.xlsx export/ket-qua-tamtru   # --json | --ca-hai như convert
+```
+
+| Nguồn | → `tamtru` | Ghi chú |
+|---|---|---|
+| `NOITAMTRU` | `NOITAMTRU` | cắt đuôi "Phường Hàng Gòn, …" như bảng dân cư |
+| `NOITHTRU` | `NOITHTRU` | thường trú ở quê, giữ nguyên |
+| `NGAYDEN` | `NGAYDEN` | DD/MM/YYYY |
+| — | `SOHOK` | **dựng ra**: cùng `CHUHO` + cùng nơi tạm trú là một hộ, số hộ = CCCD chủ hộ |
+| — | `QUANHE` | chỉ gán `CHỦ HỘ`; không có cha/mẹ nên không suy được quan hệ khác |
+
+Một CCCD đăng ký tạm trú nhiều lần (bản 10/2026: 577 dòng cũ) thì giữ lần có
+ngày đến muộn nhất. Không ghi `CHUHO` thì người đó tự thành một hộ.
+
+Tạo bảng trên Supabase bằng `ppv2web/sql/tao-bang-tamtru.sql`, rồi import CSV.
